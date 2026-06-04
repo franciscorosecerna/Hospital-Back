@@ -1,0 +1,79 @@
+import { pgTable, uuid, varchar, timestamp, date, unique } from "drizzle-orm/pg-core";
+import { doctors, patients } from "./users";
+
+export const doctorPatients = pgTable("doctor_patients", {
+  id: uuid("id").primaryKey(),
+  doctorId: uuid("doctor_id")
+    .notNull()
+    .references(() => doctors.userId),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.userId),
+  fechaAsignacion: date("fecha_asignacion").notNull().default("now()"),
+  fechaFinalizacion: date("fecha_finalizacion"),
+});
+
+export const appointments = pgTable(
+  "appointments",
+  {
+    id: uuid("id").primaryKey(),
+    patientId: uuid("patient_id")
+      .notNull()
+      .references(() => patients.userId),
+    doctorId: uuid("doctor_id")
+      .notNull()
+      .references(() => doctors.userId),
+    fechaHora: timestamp("fecha_hora").notNull(),
+    motivo: varchar("motivo", { length: 512 }),
+    // Estados: Pendiente | Confirmada | Cancelada | Completada
+    estado: varchar("estado", { length: 32 }).notNull().default("Pendiente"),
+    notas: varchar("notas", { length: 1024 }),
+  },
+  (t) => [unique("uq_appointment_doctor_time").on(t.doctorId, t.fechaHora)]
+);
+
+export const diagnoses = pgTable("diagnoses", {
+  id: uuid("id").primaryKey(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.userId),
+  appointmentId: uuid("appointment_id").references(() => appointments.id),
+  doctorId: uuid("doctor_id")
+    .notNull()
+    .references(() => doctors.userId),
+  // Código CIE-10 opcional
+  codigo: varchar("codigo", { length: 16 }),
+  descripcion: varchar("descripcion", { length: 512 }).notNull(),
+  fechaRegistro: timestamp("fecha_registro").notNull().defaultNow(),
+});
+
+export const allergies = pgTable(
+  "allergies",
+  {
+    id: uuid("id").primaryKey(),
+    patientId: uuid("patient_id")
+      .notNull()
+      .references(() => patients.userId),
+    sustancia: varchar("sustancia", { length: 256 }).notNull(),
+    // Severidad: Leve | Moderada | Grave
+    severidad: varchar("severidad", { length: 32 }).notNull(),
+    reaccion: varchar("reaccion", { length: 512 }),
+    fechaRegistro: timestamp("fecha_registro").notNull().defaultNow(),
+  },
+  (t) => [unique("uq_allergy").on(t.patientId, t.sustancia)]
+);
+
+export const procedures = pgTable("procedures", {
+  id: uuid("id").primaryKey(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patients.userId),
+  appointmentId: uuid("appointment_id").references(() => appointments.id),
+  doctorId: uuid("doctor_id")
+    .notNull()
+    .references(() => doctors.userId),
+  nombre: varchar("nombre", { length: 256 }).notNull(),
+  descripcion: varchar("descripcion", { length: 1024 }),
+  fechaHora: timestamp("fecha_hora").notNull(),
+  resultado: varchar("resultado", { length: 512 }),
+});
