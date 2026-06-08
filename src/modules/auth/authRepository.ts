@@ -104,9 +104,42 @@ export async function revokeAllRefreshTokensByUserId(
   }
 }
 
+export async function rotateRefreshToken(
+  oldTokenId: string,
+  newToken: NewRefreshToken
+): Promise<RefreshToken> {
+  try {
+    return await db.transaction(async (tx) => {
+      const revoked = await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(refreshTokens.id, oldTokenId))
+        .returning({ id: refreshTokens.id });
+
+      if (revoked.length === 0) {
+        throw new RecordNotFoundException("refresh_tokens", oldTokenId);
+      }
+
+      const [created] = await tx
+        .insert(refreshTokens)
+        .values(newToken)
+        .returning();
+
+      if (!created) throw new Error("Failed to create refresh token");
+
+      return created;
+    });
+  } catch (err) {
+    if (err instanceof RecordNotFoundException) throw err;
+    throw parsePgError(err);
+  }
+}
+
 export async function deleteExpiredRefreshTokens(): Promise<void> {
   try {
-    await db.delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
+    await db
+      .delete(refreshTokens)
+      .where(lt(refreshTokens.expiresAt, new Date()));
   } catch (err) {
     throw parsePgError(err);
   }

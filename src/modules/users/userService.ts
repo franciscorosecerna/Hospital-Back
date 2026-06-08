@@ -32,6 +32,7 @@ import {
   type Patient,
   type Nurse,
 } from "./userRepository";
+import { HTTPException } from "hono/http-exception";
 
 const SALT_ROUNDS = 12;
 
@@ -123,7 +124,7 @@ export async function changePassword(
   const user = await getUserById(id);
 
   const isValid = await bcrypt.compare(currentPassword, user.password);
-  if (!isValid) throw new Error("La contraseña actual es incorrecta.");
+  if (!isValid) throw new HTTPException(401, { message: "Credenciales inválidas." });
 
   const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await updatePassword(id, hashedPassword);
