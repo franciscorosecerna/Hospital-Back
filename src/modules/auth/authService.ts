@@ -1,7 +1,6 @@
 import { sign, verify } from "hono/jwt";
-import { HTTPException } from "hono/http-exception";
 import { createHash } from "crypto";
-import bcrypt from "bcrypt";
+import argon from "argon2";
 import { v4 as uuidv4 } from "uuid";
 import { getUserByDocumento } from "../users/userRepository";
 import {
@@ -12,6 +11,7 @@ import {
   revokeAllRefreshTokensByUserId,
 } from "./authRepository";
 import { buildTokenPayload, type TokenPayload } from "../authorization/authorizationService";
+import { InvalidCredentialsException } from "../../utils/exceptions";
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET!;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET!;
@@ -66,13 +66,11 @@ export async function login(input: LoginInput): Promise<AuthTokens> {
   "$2b$12$J3P1G7dD8V0F0l1HjFh0zOQ5jUj7dD1R0Q3s8w5L7tN6yP2eW8h9K";
   
   const passwordMatch = user
-  ? await bcrypt.compare(input.password, user.password)
-  : await bcrypt.compare(input.password, DUMMY_HASH);
+  ? await argon.verify(input.password, user.password)
+  : await argon.verify(input.password, DUMMY_HASH);
 
   if (!user || !passwordMatch) {
-    throw new HTTPException(401, {
-        message: "Credenciales inválidas.",
-    });
+    throw new InvalidCredentialsException();
     }
 
   const payload = await buildTokenPayload(user.id);
@@ -97,23 +95,23 @@ export async function refresh(rawRefreshToken: string): Promise<AuthTokens> {
   try {
     decoded = (await verify(rawRefreshToken, REFRESH_TOKEN_SECRET, "ES256")) as unknown as RefreshTokenPayload;
   } catch {
-    throw new HTTPException(401, { message: "Refresh token inválido o expirado." });
+    throw new InvalidCredentialsException();
   }
 
   const stored = await findRefreshTokenByHash(hashToken(rawRefreshToken));
 
   if (!stored) {
-    throw new HTTPException(401, { message: "Refresh token inválido o expirado." });
+    throw new InvalidCredentialsException();
   }
 
   if (stored.revokedAt !== null) {
     await revokeAllRefreshTokensByUserId(decoded.sub);
-    throw new HTTPException(401, { message: "Refresh token inválido o expirado." });
+    throw new InvalidCredentialsException();
   }
 
   if (stored.expiresAt < new Date()) {
     await revokeRefreshToken(stored.id);
-    throw new HTTPException(401, { message: "Refresh token expirado." });
+    throw new InvalidCredentialsException();
   }
 
   const newJti = uuidv4();
