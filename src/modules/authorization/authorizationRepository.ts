@@ -1,7 +1,7 @@
 import { db } from "../../db/client";
 import { roles, permissions, userRoles, rolePermissions } from "../../db/schema/auth";
 import { eq, and} from "drizzle-orm";
-import { parsePgError, RecordNotFoundException } from "../../db/exceptions";
+import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
 
 export type NewRole = typeof roles.$inferInsert;
 export type Role = typeof roles.$inferSelect;

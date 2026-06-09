@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../db/client";
 import { users, doctors, patients, nurses } from "../../db/schema/users";
-import { parsePgError, RecordNotFoundException } from "../../db/exceptions";
+import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
 
 export type NewUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -16,13 +16,14 @@ export type NewNurse = typeof nurses.$inferInsert;
 export type Nurse = typeof nurses.$inferSelect;
 
 export async function createUser(data: NewUser): Promise<User> {
+  let result: User | undefined;
   try {
-    const [user] = await db.insert(users).values(data).returning();
-    if (!user) throw new Error("Failed to create user");
-    return user;
+    [result] = await db.insert(users).values(data).returning();
   } catch (err) {
     throw parsePgError(err);
   }
+  if (!result) throw new Error("Failed to create user");
+  return result;
 }
 
 export async function getUserById(id: string): Promise<User> {
@@ -56,9 +57,9 @@ export async function getUserByDocumento(
   }
 }
 
-export async function getAllUsers(): Promise<User[]> {
+export async function getAllUsers(limit: number = 50, offset: number = 0): Promise<User[]> {
   try {
-    return await db.select().from(users);
+    return await db.select().from(users).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
@@ -108,13 +109,14 @@ export async function deleteUser(id: string): Promise<User> {
 }
 
 export async function createDoctor(data: NewDoctor): Promise<Doctor> {
+  let result: Doctor | undefined;
   try {
-    const [doctor] = await db.insert(doctors).values(data).returning();
-    if(!doctor) throw new Error("Failed to create doctor");
-    return doctor;
+    [result] = await db.insert(doctors).values(data).returning();
   } catch (err) {
     throw parsePgError(err);
   }
+  if (!result) throw new Error("Failed to create doctor");
+  return result;
 }
 
 export async function getDoctorByUserId(userId: string): Promise<Doctor> {
@@ -143,9 +145,9 @@ export async function getDoctorByMatricula(matricula: string): Promise<Doctor> {
   }
 }
 
-export async function getAllDoctors(): Promise<Doctor[]> {
+export async function getAllDoctors(limit: number = 50, offset: number = 0): Promise<Doctor[]> {
   try {
-    return await db.select().from(doctors);
+    return await db.select().from(doctors).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
@@ -182,13 +184,14 @@ export async function deleteDoctor(userId: string): Promise<Doctor> {
 }
 
 export async function createPatient(data: NewPatient): Promise<Patient> {
+  let result: Patient | undefined;
   try {
-    const [patient] = await db.insert(patients).values(data).returning();
-    if(!patient) throw new Error("Failed to create patient");
-    return patient;
+    [result] = await db.insert(patients).values(data).returning();
   } catch (err) {
     throw parsePgError(err);
   }
+  if (!result) throw new Error("Failed to create patient");
+  return result;
 }
 
 export async function getPatientByUserId(userId: string): Promise<Patient> {
@@ -219,9 +222,9 @@ export async function getPatientByHistoriaClinica(
   }
 }
 
-export async function getAllPatients(): Promise<Patient[]> {
+export async function getAllPatients(limit: number = 50, offset: number = 0): Promise<Patient[]> {
   try {
-    return await db.select().from(patients);
+    return await db.select().from(patients).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
@@ -258,13 +261,14 @@ export async function deletePatient(userId: string): Promise<Patient> {
 }
 
 export async function createNurse(data: NewNurse): Promise<Nurse> {
+  let result: Nurse | undefined;
   try {
-    const [nurse] = await db.insert(nurses).values(data).returning();
-    if(!nurse) throw new Error("Failed to create nurse");
-    return nurse;
+    [result] = await db.insert(nurses).values(data).returning();
   } catch (err) {
     throw parsePgError(err);
   }
+  if (!result) throw new Error("Failed to create nurse");
+  return result;
 }
 
 export async function getNurseByUserId(userId: string): Promise<Nurse> {
@@ -299,9 +303,9 @@ export async function getNursesByTurno(turno: string): Promise<Nurse[]> {
   }
 }
 
-export async function getAllNurses(): Promise<Nurse[]> {
+export async function getAllNurses(limit: number = 50, offset: number = 0): Promise<Nurse[]> {
   try {
-    return await db.select().from(nurses);
+    return await db.select().from(nurses).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
@@ -341,11 +345,11 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 async function insertUser(tx: Tx, data: NewUser): Promise<User> {
   const [user] = await tx.insert(users).values(data).returning();
-  if(!user) throw new Error("Failed to create user");
+  if (!user) throw new Error("Failed to create user");
   return user;
 }
 
-async function removeUser(tx: Tx, id: string): Promise<void> {
+async function deleteUserTx(tx: Tx, id: string): Promise<void> {
   const [deleted] = await tx.delete(users).where(eq(users.id, id)).returning({ id: users.id });
   if (!deleted) throw new RecordNotFoundException("users", id);
 }
@@ -361,10 +365,11 @@ export async function createUserWithDoctor(
         .insert(doctors)
         .values({ ...doctorData, userId: user.id })
         .returning();
-      if(!doctor) throw new Error("Failed to create doctor");
+      if (!doctor) throw new Error("Failed to create doctor");
       return { user, doctor };
     });
   } catch (err) {
+    if (err instanceof Error && !("code" in err)) throw err;
     throw parsePgError(err);
   }
 }
@@ -379,7 +384,7 @@ export async function deleteUserWithDoctor(
         .where(eq(doctors.userId, userId))
         .returning({ userId: doctors.userId });
       if (!deleted) throw new RecordNotFoundException("doctors", userId);
-      await removeUser(tx, userId);
+      await deleteUserTx(tx, userId);
     });
   } catch (err) {
     throw parsePgError(err);
@@ -397,10 +402,11 @@ export async function createUserWithPatient(
         .insert(patients)
         .values({ ...patientData, userId: user.id })
         .returning();
-      if(!patient) throw new Error("Failed to create patient");
+      if (!patient) throw new Error("Failed to create patient");
       return { user, patient };
     });
   } catch (err) {
+    if (err instanceof Error && !("code" in err)) throw err;
     throw parsePgError(err);
   }
 }
@@ -415,7 +421,7 @@ export async function deleteUserWithPatient(
         .where(eq(patients.userId, userId))
         .returning({ userId: patients.userId });
       if (!deleted) throw new RecordNotFoundException("patients", userId);
-      await removeUser(tx, userId);
+      await deleteUserTx(tx, userId);
     });
   } catch (err) {
     throw parsePgError(err);
@@ -433,10 +439,11 @@ export async function createUserWithNurse(
         .insert(nurses)
         .values({ ...nurseData, userId: user.id })
         .returning();
-      if(!nurse) throw new Error("Failed to create nurse");
+      if (!nurse) throw new Error("Failed to create nurse");
       return { user, nurse };
     });
   } catch (err) {
+    if (err instanceof Error && !("code" in err)) throw err;
     throw parsePgError(err);
   }
 }
@@ -451,7 +458,7 @@ export async function deleteUserWithNurse(
         .where(eq(nurses.userId, userId))
         .returning({ userId: nurses.userId });
       if (!deleted) throw new RecordNotFoundException("nurses", userId);
-      await removeUser(tx, userId);
+      await deleteUserTx(tx, userId);
     });
   } catch (err) {
     throw parsePgError(err);

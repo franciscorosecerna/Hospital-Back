@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import argon from "argon2";
 import { v4 as uuidv4 } from "uuid";
 import {
   createUser,
@@ -32,9 +32,7 @@ import {
   type Patient,
   type Nurse,
 } from "./userRepository";
-import { HTTPException } from "hono/http-exception";
-
-const SALT_ROUNDS = 12;
+import { InvalidCredentialsException} from "../../utils/exceptions";
 
 export type SafeUser = Omit<User, "password">;
 
@@ -43,7 +41,7 @@ export type CreateUserInput = {
   apellido: string;
   tipoDocumento: string;
   documento: string;
-  fechaNacimiento: string;
+  fechaNacimiento: Date;
   password: string;
 };
 
@@ -72,14 +70,14 @@ function toSafeUser(user: User): SafeUser {
 }
 
 async function buildBaseUser(input: CreateUserInput) {
-  const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const hashedPassword = await argon.hash(input.password);
   return {
     id: uuidv4(),
     nombre: input.nombre,
     apellido: input.apellido,
     tipoDocumento: input.tipoDocumento,
     documento: input.documento,
-    fechaNacimiento: input.fechaNacimiento,
+    fechaNacimiento: input.fechaNacimiento.toISOString().slice(0, 10),
     password: hashedPassword,
   };
 }
@@ -103,8 +101,8 @@ export async function findUserByDocumento(
   return toSafeUser(user);
 }
 
-export async function listUsers(): Promise<SafeUser[]> {
-  const users = await getAllUsers();
+export async function listUsers(limit: number = 50, offset: number = 0): Promise<SafeUser[]> {
+  const users = await getAllUsers(limit, offset);
   return users.map(toSafeUser);
 }
 
@@ -112,7 +110,11 @@ export async function editUser(
   id: string,
   input: UpdateUserInput
 ): Promise<SafeUser> {
-  const user = await updateUser(id, input);
+  const updateData = {
+    ...input,
+    fechaNacimiento: input.fechaNacimiento?.toISOString().slice(0, 10),
+  };
+  const user = await updateUser(id, updateData);
   return toSafeUser(user);
 }
 
@@ -123,10 +125,10 @@ export async function changePassword(
 ): Promise<void> {
   const user = await getUserById(id);
 
-  const isValid = await bcrypt.compare(currentPassword, user.password);
-  if (!isValid) throw new HTTPException(401, { message: "Credenciales inválidas." });
+  const isValid = await argon.verify(user.password, currentPassword);
+  if (!isValid) throw new InvalidCredentialsException();
 
-  const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const hashedPassword = await argon.hash(newPassword);
   await updatePassword(id, hashedPassword);
 }
 

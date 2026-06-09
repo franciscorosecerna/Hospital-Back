@@ -1,7 +1,7 @@
 import { db } from "../../db/client";
 import { refreshTokens } from "../../db/schema/auth";
 import { eq, and, gt, lt, isNull } from "drizzle-orm";
-import { parsePgError, RecordNotFoundException } from "../../db/exceptions";
+import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
 
 export type NewRefreshToken = typeof refreshTokens.$inferInsert;
 export type RefreshToken = typeof refreshTokens.$inferSelect;

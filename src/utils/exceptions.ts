@@ -8,6 +8,18 @@ export const PG_ERROR_CODES = {
   STRING_DATA_RIGHT_TRUNCATION: "22001",
 } as const;
 
+export class InvalidCredentialsException extends Error {
+  constructor() {
+    super("Invalid credentials provided.");
+    this.name = new.target.name;
+
+    Error.captureStackTrace?.(
+      this,
+      new.target
+    );
+  }
+}
+
 export class DatabaseException extends Error {
   constructor(
     message: string,
