@@ -21,12 +21,12 @@ import {
   getNursesByTurno,
   getAllNurses,
   updateNurse,
-  createUserWithDoctor,
-  deleteUserWithDoctor,
-  createUserWithPatient,
-  deleteUserWithPatient,
-  createUserWithNurse,
-  deleteUserWithNurse,
+  createDoctor,
+  deleteDoctor,
+  createPatient,
+  deletePatient,
+  createNurse,
+  deleteNurse,
   type User,
   type Doctor,
   type Patient,
@@ -141,7 +141,7 @@ export async function registerDoctor(
   input: CreateDoctorInput
 ): Promise<{ user: SafeUser; doctor: Doctor }> {
   const userData = await buildBaseUser(input);
-  const { user, doctor } = await createUserWithDoctor(userData, {
+  const { user, doctor } = await createDoctor(userData, {
     matricula: input.matricula,
     especialidad: input.especialidad,
   });
@@ -168,14 +168,14 @@ export async function editDoctor(
 }
 
 export async function removeDoctor(userId: string): Promise<void> {
-  await deleteUserWithDoctor(userId);
+  await deleteDoctor(userId);
 }
 
 export async function registerPatient(
   input: CreatePatientInput
 ): Promise<{ user: SafeUser; patient: Patient }> {
   const userData = await buildBaseUser(input);
-  const { user, patient } = await createUserWithPatient(userData, {
+  const { user, patient } = await createPatient(userData, {
     numeroHistoriaClinica: input.numeroHistoriaClinica,
     grupoSanguineo: input.grupoSanguineo,
   });
@@ -202,14 +202,14 @@ export async function editPatient(
 }
 
 export async function removePatient(userId: string): Promise<void> {
-  await deleteUserWithPatient(userId);
+  await deletePatient(userId);
 }
 
 export async function registerNurse(
   input: CreateNurseInput
 ): Promise<{ user: SafeUser; nurse: Nurse }> {
   const userData = await buildBaseUser(input);
-  const { user, nurse } = await createUserWithNurse(userData, {
+  const { user, nurse } = await createNurse(userData, {
     departmentId: input.departmentId,
     turno: input.turno,
   });
@@ -236,5 +236,5 @@ export async function editNurse(
 }
 
 export async function removeNurse(userId: string): Promise<void> {
-  await deleteUserWithNurse(userId);
+  await deleteNurse(userId);
 }
