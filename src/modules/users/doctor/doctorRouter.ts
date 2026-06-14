@@ -15,7 +15,12 @@ import { requirePermission } from "../../../middleware/permissionMiddleware";
 
 export const doctorRouter = new Hono();
 
-doctorRouter.post("/", zValidator("json", createDoctorSchema), createDoctor);
+doctorRouter.post("/",
+  authMiddleware,
+  requirePermission("doctors:create"),
+  zValidator("json", createDoctorSchema),
+  createDoctor
+);
 
 doctorRouter.get("/", authMiddleware, requirePermission("doctors:read"), getDoctors);
 
