@@ -62,7 +62,7 @@ export async function findPatientByHistoriaClinica(
   return getPatientByHistoriaClinica(numeroHistoriaClinica);
 }
 
-export async function listAllPatients(
+export async function listPatients(
   limit: number = 50, 
   page: number = 0
 ): Promise<Patient[]> {

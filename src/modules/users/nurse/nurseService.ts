@@ -65,7 +65,7 @@ export async function listNursesByTurno(turno: string): Promise<Nurse[]> {
   return getNursesByTurno(turno);
 }
 
-export async function listAllNurses(
+export async function listNurses(
   limit: number = 50,
   page: number = 0
 ): Promise<Nurse[]> {

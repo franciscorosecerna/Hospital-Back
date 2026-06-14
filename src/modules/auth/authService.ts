@@ -93,7 +93,7 @@ export async function refresh(rawRefreshToken: string): Promise<AuthTokens> {
   let decoded: RefreshTokenPayload;
 
   try {
-    decoded = (await verify(rawRefreshToken, REFRESH_TOKEN_SECRET, "ES256")) as unknown as RefreshTokenPayload;
+    decoded = (await verify(rawRefreshToken, REFRESH_TOKEN_SECRET, "HS256")) as unknown as RefreshTokenPayload;
   } catch {
     throw new InvalidCredentialsException();
   }
@@ -131,7 +131,7 @@ export async function refresh(rawRefreshToken: string): Promise<AuthTokens> {
 
 export async function logout(rawRefreshToken: string): Promise<void> {
   try {
-    await verify(rawRefreshToken, REFRESH_TOKEN_SECRET, "ES256");
+    await verify(rawRefreshToken, REFRESH_TOKEN_SECRET, "HS256");
   } catch {
     return;
   }
