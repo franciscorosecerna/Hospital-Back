@@ -21,7 +21,7 @@ export async function getDoctors(c: Context) {
   return c.json(doctors);
 }
 
-export async function getDoctorByMatriculaHandler(c: Context) {
+export async function getDoctorByMatricula(c: Context) {
   const { matricula } = c.req.valid("param" as never);
   const doctor = await findDoctorByMatricula(matricula);
   return c.json(doctor);

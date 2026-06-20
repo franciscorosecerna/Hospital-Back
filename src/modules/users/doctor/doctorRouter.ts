@@ -5,7 +5,7 @@ import { createDoctorSchema, idParamSchema, updateDoctorSchema } from "../userSc
 import {
   createDoctor,
   getDoctors,
-  getDoctorByMatriculaHandler,
+  getDoctorByMatricula,
   getDoctorById,
   updateDoctor,
   deleteDoctor,
@@ -29,7 +29,7 @@ doctorRouter.get(
   authMiddleware,
   requirePermission("doctors:read"),
   zValidator("param", z.object({ matricula: z.string() })),
-  getDoctorByMatriculaHandler
+  getDoctorByMatricula
 );
 
 doctorRouter.get(
