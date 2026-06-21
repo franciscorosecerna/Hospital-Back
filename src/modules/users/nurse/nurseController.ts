@@ -17,7 +17,7 @@ export async function createNurse(c: Context) {
 
 export async function getNurses(c: Context) {
   const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 0);
+  const page = Number(c.req.query("page") ?? 1);
   const nurses = await listNurses(limit, page);
   return c.json(nurses);
 }

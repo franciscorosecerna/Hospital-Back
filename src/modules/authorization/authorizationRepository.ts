@@ -47,9 +47,12 @@ export async function findRoleByName(nombre: string): Promise<Role | undefined> 
   }
 }
 
-export async function listRoles(): Promise<Role[]> {
+export async function listRoles(
+  limit: number = 50,
+  offset: number = 0
+): Promise<Role[]> {
   try {
-    return await db.select().from(roles);
+    return await db.select().from(roles).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
@@ -109,9 +112,12 @@ export async function findPermissionByName(nombre: string): Promise<Permission |
   }
 }
 
-export async function listPermissions(): Promise<Permission[]> {
+export async function listPermissions(
+  limit: number = 50,
+  offset: number = 0
+): Promise<Permission[]> {
   try {
-    return await db.select().from(permissions);
+    return await db.select().from(permissions).limit(limit).offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
