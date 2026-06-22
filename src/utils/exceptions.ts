@@ -8,9 +8,25 @@ export const PG_ERROR_CODES = {
   STRING_DATA_RIGHT_TRUNCATION: "22001",
 } as const;
 
+export class ForbiddenException extends Error {
+  constructor(
+    message = "You do not have permission to perform this action."
+  ) {
+    super(message);
+    this.name = new.target.name;
+
+    Error.captureStackTrace?.(
+      this,
+      new.target
+    );
+  }
+}
+
 export class InvalidCredentialsException extends Error {
-  constructor() {
-    super("Invalid credentials provided.");
+  constructor(
+    message = "Invalid credentials provided."
+  ) {
+    super(message);
     this.name = new.target.name;
 
     Error.captureStackTrace?.(

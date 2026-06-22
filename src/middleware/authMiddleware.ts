@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { verify } from "hono/jwt";
 import type { TokenPayload } from "../modules/authorization/authorizationService";
+import { InvalidCredentialsException } from "../utils/exceptions";
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
@@ -17,18 +18,15 @@ export const authMiddleware = createMiddleware<{
 }>(async (c, next) => {
   const authHeader = c.req.header("Authorization");
 
-  if (!authHeader?.startsWith("Bearer ")) {
-    return c.json({ message: "Token de acceso requerido" }, 401);
-  }
+  if (!authHeader?.startsWith("Bearer ")) throw new InvalidCredentialsException();
 
   const token = authHeader.slice(7);
-
   let payload: TokenPayload;
 
   try {
     payload = await verify(token, ACCESS_TOKEN_SECRET, "HS256") as unknown as TokenPayload;
   } catch {
-    return c.json({ message: "Token inválido o expirado" }, 401);
+    throw new InvalidCredentialsException();
   }
 
   if (
@@ -38,10 +36,8 @@ export const authMiddleware = createMiddleware<{
     !Array.isArray(payload.permissions) ||
     !payload.permissions.every(p => typeof p === "string")
   ) {
-    return c.json({ message: "Token malformado" }, 401);
+    throw new InvalidCredentialsException();
   }
-
   c.set("user", payload);
-
   await next();
 });
