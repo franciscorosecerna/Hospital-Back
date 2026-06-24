@@ -10,10 +10,7 @@ export const users = pgTable(
     documento: varchar("documento", { length: 64 }).notNull(),
     fechaNacimiento: date("fecha_nacimiento").notNull(),
     password: varchar("password", { length: 256 }).notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
     isActive: boolean("is_active").notNull().default(true),
-    deletedAt: timestamp("deleted_at"),
   },
   (t) => [unique("uq_users_documento").on(t.tipoDocumento, t.documento)]
 );

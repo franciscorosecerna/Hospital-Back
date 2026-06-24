@@ -2,12 +2,9 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../../db/client";
 import { users } from "../../db/schema/users";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
-import { withTimestamp, softDeletePayload } from "../../utils/softDelete";
 
 export type NewUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
-
-export const notDeleted = isNull(users.deletedAt);
 
 export async function createUser(data: NewUser): Promise<User> {
   let result: User | undefined;
@@ -25,7 +22,7 @@ export async function getUserById(id: string): Promise<User> {
     const [user] = await db
       .select()
       .from(users)
-      .where(and(eq(users.id, id), notDeleted));
+      .where(and(eq(users.id, id), eq(users.isActive, true)));
     if (!user) throw new RecordNotFoundException("users", id);
     return user;
   } catch (err) {
@@ -45,7 +42,7 @@ export async function getUserByDocumento(
         and(
           eq(users.tipoDocumento, tipoDocumento),
           eq(users.documento, documento),
-          notDeleted
+          eq(users.isActive, true)
         )
       );
     if (!user)
@@ -64,7 +61,7 @@ export async function getAllUsers(
     return await db
       .select()
       .from(users)
-      .where(notDeleted)
+      .where(eq(users.isActive, true))
       .limit(limit)
       .offset(offset);
   } catch (err) {
@@ -79,8 +76,8 @@ export async function updateUser(
   try {
     const [updated] = await db
       .update(users)
-      .set(withTimestamp(data))
-      .where(and(eq(users.id, id), notDeleted))
+      .set(data)
+      .where(and(eq(users.id, id), eq(users.isActive, true)))
       .returning();
     if (!updated) throw new RecordNotFoundException("users", id);
     return updated;
@@ -96,8 +93,8 @@ export async function updatePassword(
   try {
     const [updated] = await db
       .update(users)
-      .set(withTimestamp({ password: hashedPassword }))
-      .where(and(eq(users.id, id), notDeleted))
+      .set({ password: hashedPassword })
+      .where(and(eq(users.id, id), eq(users.isActive, true)))
       .returning({ id: users.id });
     if (!updated) throw new RecordNotFoundException("users", id);
   } catch (err) {
@@ -109,8 +106,8 @@ export async function deleteUser(id: string): Promise<User> {
   try {
     const [deleted] = await db
       .update(users)
-      .set(softDeletePayload())
-      .where(and(eq(users.id, id), notDeleted))
+      .set({ isActive: false })
+      .where(and(eq(users.id, id), eq(users.isActive, true)))
       .returning();
     if (!deleted) throw new RecordNotFoundException("users", id);
     return deleted;
@@ -130,8 +127,8 @@ export async function insertUser(tx: Tx, data: NewUser): Promise<User> {
 export async function softDeleteUserTx(tx: Tx, id: string): Promise<void> {
   const [updated] = await tx
     .update(users)
-    .set(softDeletePayload())
-    .where(and(eq(users.id, id), isNull(users.deletedAt)))
+    .set({ isActive: false })
+    .where(and(eq(users.id, id), eq(users.isActive, true)))
     .returning({ id: users.id });
   if (!updated) throw new RecordNotFoundException("users", id);
 }
