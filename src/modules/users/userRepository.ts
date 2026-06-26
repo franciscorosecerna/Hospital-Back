@@ -1,20 +1,30 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../db/client";
 import { users } from "../../db/schema/users";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
+import { auditLogs, type AuditAction } from "../../db/schema/auditLogs";
 
 export type NewUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export const notDeleted = eq(users.isActive, true);
 
-export async function createUser(data: NewUser): Promise<User> {
-  let result: User | undefined;
-  try {
-    [result] = await db.insert(users).values(data).returning();
-  } catch (err) {
-    throw parsePgError(err);
-  }
-  if (!result) throw new Error("Failed to create user");
-  return result;
+async function insertAuditLog(
+  tx: Tx,
+  action: AuditAction,
+  recordId: string,
+  previousData?: object,
+  newData?: object,
+  performedBy?: string
+): Promise<void> {
+  await tx.insert(auditLogs).values({
+    tableName: "users",
+    recordId,
+    action,
+    previousData,
+    newData,
+    performedBy,
+  });
 }
 
 export async function getUserById(id: string): Promise<User> {
@@ -22,7 +32,7 @@ export async function getUserById(id: string): Promise<User> {
     const [user] = await db
       .select()
       .from(users)
-      .where(and(eq(users.id, id), eq(users.isActive, true)));
+      .where(and(eq(users.id, id), notDeleted));
     if (!user) throw new RecordNotFoundException("users", id);
     return user;
   } catch (err) {
@@ -42,7 +52,7 @@ export async function getUserByDocumento(
         and(
           eq(users.tipoDocumento, tipoDocumento),
           eq(users.documento, documento),
-          eq(users.isActive, true)
+          notDeleted
         )
       );
     if (!user)
@@ -61,7 +71,7 @@ export async function getAllUsers(
     return await db
       .select()
       .from(users)
-      .where(eq(users.isActive, true))
+      .where(notDeleted)
       .limit(limit)
       .offset(offset);
   } catch (err) {
@@ -69,18 +79,48 @@ export async function getAllUsers(
   }
 }
 
-export async function updateUser(
-  id: string,
-  data: Partial<Omit<NewUser, "id">>
+export async function createUser(
+  data: NewUser,
+  performedBy?: string
 ): Promise<User> {
   try {
-    const [updated] = await db
-      .update(users)
-      .set(data)
-      .where(and(eq(users.id, id), eq(users.isActive, true)))
-      .returning();
-    if (!updated) throw new RecordNotFoundException("users", id);
-    return updated;
+    return await db.transaction(async (tx) => {
+      const [user] = await tx.insert(users).values(data).returning();
+      if (!user) throw new Error("Failed to create user");
+
+      await insertAuditLog(tx, "created", user.id, undefined, user, performedBy);
+
+      return user;
+    });
+  } catch (err) {
+    throw parsePgError(err);
+  }
+}
+
+export async function updateUser(
+  id: string,
+  data: Partial<Omit<NewUser, "id">>,
+  performedBy?: string
+): Promise<User> {
+  try {
+    return await db.transaction(async (tx) => {
+      const [previous] = await tx
+        .select()
+        .from(users)
+        .where(and(eq(users.id, id), notDeleted));
+      if (!previous) throw new RecordNotFoundException("users", id);
+
+      const [updated] = await tx
+        .update(users)
+        .set(data)
+        .where(and(eq(users.id, id), notDeleted))
+        .returning();
+      if (!updated) throw new RecordNotFoundException("users", id);
+
+      await insertAuditLog(tx, "updated", id, previous, updated, performedBy);
+
+      return updated;
+    });
   } catch (err) {
     throw parsePgError(err);
   }
@@ -88,47 +128,63 @@ export async function updateUser(
 
 export async function updatePassword(
   id: string,
-  hashedPassword: string
+  hashedPassword: string,
+  performedBy?: string
 ): Promise<void> {
   try {
-    const [updated] = await db
-      .update(users)
-      .set({ password: hashedPassword })
-      .where(and(eq(users.id, id), eq(users.isActive, true)))
-      .returning({ id: users.id });
-    if (!updated) throw new RecordNotFoundException("users", id);
+    await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(and(eq(users.id, id), notDeleted))
+        .returning({ id: users.id });
+      if (!updated) throw new RecordNotFoundException("users", id);
+
+      await insertAuditLog(tx, "updated", id, undefined, undefined, performedBy);
+    });
   } catch (err) {
     throw parsePgError(err);
   }
 }
 
-export async function deleteUser(id: string): Promise<User> {
+export async function deleteUser(
+  id: string,
+  performedBy?: string
+): Promise<User> {
   try {
-    const [deleted] = await db
-      .update(users)
-      .set({ isActive: false })
-      .where(and(eq(users.id, id), eq(users.isActive, true)))
-      .returning();
-    if (!deleted) throw new RecordNotFoundException("users", id);
-    return deleted;
+    return await db.transaction(async (tx) => {
+      const [deleted] = await tx
+        .update(users)
+        .set({ isActive: false })
+        .where(and(eq(users.id, id), notDeleted))
+        .returning();
+      if (!deleted) throw new RecordNotFoundException("users", id);
+
+      await insertAuditLog(tx, "deleted", id, deleted, undefined, performedBy);
+
+      return deleted;
+    });
   } catch (err) {
     throw parsePgError(err);
   }
 }
 
-export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export async function insertUser(tx: Tx, data: NewUser): Promise<User> {
+export async function insertUser(tx: Tx, data: NewUser, performedBy?: string): Promise<User> {
   const [user] = await tx.insert(users).values(data).returning();
   if (!user) throw new Error("Failed to create user");
+
+  await insertAuditLog(tx, "created", user.id, undefined, user, performedBy);
+
   return user;
 }
 
-export async function softDeleteUserTx(tx: Tx, id: string): Promise<void> {
-  const [updated] = await tx
+export async function softDeleteUserTx(tx: Tx, id: string, performedBy?: string): Promise<void> {
+  const [deleted] = await tx
     .update(users)
     .set({ isActive: false })
-    .where(and(eq(users.id, id), eq(users.isActive, true)))
-    .returning({ id: users.id });
-  if (!updated) throw new RecordNotFoundException("users", id);
+    .where(and(eq(users.id, id), notDeleted))
+    .returning();
+  if (!deleted) throw new RecordNotFoundException("users", id);
+
+  await insertAuditLog(tx, "deleted", id, deleted, undefined, performedBy);
 }

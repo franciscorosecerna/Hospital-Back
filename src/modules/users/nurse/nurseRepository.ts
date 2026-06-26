@@ -1,42 +1,48 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { users, nurses } from "../../../db/schema/users";
+import { auditLogs, type AuditAction } from "../../../db/schema/auditLogs";
 import { parsePgError, RecordNotFoundException } from "../../../utils/exceptions";
-import { withTimestamp } from "../../../utils/softDelete";
-import { type User, type Tx, notDeleted, insertUser, softDeleteUserTx, type NewUser } from "../userRepository";
+import {
+  type User,
+  type Tx,
+  notDeleted,
+  insertUser,
+  softDeleteUserTx,
+  type NewUser,
+} from "../userRepository";
 
 export type NewNurse = typeof nurses.$inferInsert;
 export type Nurse = typeof nurses.$inferSelect;
+export type NurseWithUser = { user: User; nurse: Nurse };
 
-export async function createNurse(
-  userData: NewUser,
-  nurseData: Omit<NewNurse, "userId">
-): Promise<{ user: User; nurse: Nurse }> {
-  try {
-    return await db.transaction(async (tx: Tx) => {
-      const user = await insertUser(tx, userData);
-      const [nurse] = await tx
-        .insert(nurses)
-        .values({ ...nurseData, userId: user.id })
-        .returning();
-      if (!nurse) throw new Error("Failed to create nurse");
-      return { user, nurse };
-    });
-  } catch (err) {
-    throw parsePgError(err);
-  }
+async function insertNurseAuditLog(
+  tx: Tx,
+  action: AuditAction,
+  recordId: string,
+  previousData?: object,
+  newData?: object,
+  performedBy?: string
+): Promise<void> {
+  await tx.insert(auditLogs).values({
+    tableName: "nurses",
+    recordId,
+    action,
+    previousData,
+    newData,
+    performedBy,
+  });
 }
 
-export async function getNurseByUserId(userId: string): Promise<Nurse> {
+export async function getNurseByUserId(userId: string): Promise<NurseWithUser> {
   try {
-    const [nurse] = await db
-      .select({ nurses })
+    const [row] = await db
+      .select()
       .from(nurses)
       .innerJoin(users, eq(nurses.userId, users.id))
-      .where(and(eq(nurses.userId, userId), notDeleted))
-      .then((rows) => rows.map((r) => r.nurses));
-    if (!nurse) throw new RecordNotFoundException("nurses", userId);
-    return nurse;
+      .where(and(eq(nurses.userId, userId), notDeleted));
+    if (!row) throw new RecordNotFoundException("nurses", userId);
+    return { user: row.users, nurse: row.nurses };
   } catch (err) {
     throw parsePgError(err);
   }
@@ -46,16 +52,16 @@ export async function getNursesByDepartment(
   departmentId: string,
   limit: number = 50,
   offset: number = 0
-): Promise<Nurse[]> {
+): Promise<NurseWithUser[]> {
   try {
-    return await db
-      .select({ nurses })
+    const rows = await db
+      .select()
       .from(nurses)
       .innerJoin(users, eq(nurses.userId, users.id))
       .where(and(eq(nurses.departmentId, departmentId), notDeleted))
       .limit(limit)
-      .offset(offset)
-      .then((rows) => rows.map((r) => r.nurses));
+      .offset(offset);
+    return rows.map((r) => ({ user: r.users, nurse: r.nurses }));
   } catch (err) {
     throw parsePgError(err);
   }
@@ -65,16 +71,16 @@ export async function getNursesByTurno(
   turno: string,
   limit: number = 50,
   offset: number = 0
-): Promise<Nurse[]> {
+): Promise<NurseWithUser[]> {
   try {
-    return await db
-      .select({ nurses })
+    const rows = await db
+      .select()
       .from(nurses)
       .innerJoin(users, eq(nurses.userId, users.id))
       .where(and(eq(nurses.turno, turno), notDeleted))
       .limit(limit)
-      .offset(offset)
-      .then((rows) => rows.map((r) => r.nurses));
+      .offset(offset);
+    return rows.map((r) => ({ user: r.users, nurse: r.nurses }));
   } catch (err) {
     throw parsePgError(err);
   }
@@ -83,16 +89,40 @@ export async function getNursesByTurno(
 export async function getAllNurses(
   limit: number = 50,
   offset: number = 0
-): Promise<Nurse[]> {
+): Promise<NurseWithUser[]> {
   try {
-    return await db
-      .select({ nurses })
+    const rows = await db
+      .select()
       .from(nurses)
       .innerJoin(users, eq(nurses.userId, users.id))
       .where(notDeleted)
       .limit(limit)
-      .offset(offset)
-      .then((rows) => rows.map((r) => r.nurses));
+      .offset(offset);
+    return rows.map((r) => ({ user: r.users, nurse: r.nurses }));
+  } catch (err) {
+    throw parsePgError(err);
+  }
+}
+
+export async function createNurse(
+  userData: NewUser,
+  nurseData: Omit<NewNurse, "userId">,
+  performedBy?: string
+): Promise<NurseWithUser> {
+  try {
+    return await db.transaction(async (tx: Tx) => {
+      const user = await insertUser(tx, userData, performedBy);
+
+      const [nurse] = await tx
+        .insert(nurses)
+        .values({ ...nurseData, userId: user.id })
+        .returning();
+      if (!nurse) throw new Error("Failed to create nurse");
+
+      await insertNurseAuditLog(tx, "created", nurse.userId, undefined, nurse, performedBy);
+
+      return { user, nurse };
+    });
   } catch (err) {
     throw parsePgError(err);
   }
@@ -100,30 +130,51 @@ export async function getAllNurses(
 
 export async function updateNurse(
   userId: string,
-  data: Partial<Omit<NewNurse, "userId">>
-): Promise<Nurse> {
+  data: Partial<Omit<NewNurse, "userId">>,
+  performedBy?: string
+): Promise<NurseWithUser> {
   try {
-    const [updated] = await db
-      .update(nurses)
-      .set(withTimestamp(data))
-      .where(eq(nurses.userId, userId))
-      .returning();
-    if (!updated) throw new RecordNotFoundException("nurses", userId);
-    return updated;
+    return await db.transaction(async (tx: Tx) => {
+      const [previous] = await tx
+        .select()
+        .from(nurses)
+        .where(eq(nurses.userId, userId));
+      if (!previous) throw new RecordNotFoundException("nurses", userId);
+
+      const [updated] = await tx
+        .update(nurses)
+        .set(data)
+        .where(eq(nurses.userId, userId))
+        .returning();
+      if (!updated) throw new RecordNotFoundException("nurses", userId);
+
+      await insertNurseAuditLog(tx, "updated", userId, previous, updated, performedBy);
+
+      const [userRow] = await tx
+        .select()
+        .from(users)
+        .where(and(eq(users.id, userId), notDeleted));
+      if (!userRow) throw new RecordNotFoundException("users", userId);
+
+      return { user: userRow, nurse: updated };
+    });
   } catch (err) {
     throw parsePgError(err);
   }
 }
 
-export async function deleteNurse(userId: string): Promise<void> {
+export async function deleteNurse(userId: string, performedBy?: string): Promise<void> {
   try {
     await db.transaction(async (tx: Tx) => {
       const [nurse] = await tx
-        .select({ userId: nurses.userId })
+        .select()
         .from(nurses)
         .where(eq(nurses.userId, userId));
       if (!nurse) throw new RecordNotFoundException("nurses", userId);
-      await softDeleteUserTx(tx, userId);
+
+      await insertNurseAuditLog(tx, "deleted", userId, nurse, undefined, performedBy);
+
+      await softDeleteUserTx(tx, userId, performedBy);
     });
   } catch (err) {
     throw parsePgError(err);

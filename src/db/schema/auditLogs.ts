@@ -1,5 +1,6 @@
 import { pgTable, uuid, varchar, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { db } from "../client";
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -11,3 +12,31 @@ export const auditLogs = pgTable("audit_logs", {
   performedBy: uuid("performed_by").references(() => users.id),
   performedAt: timestamp("performed_at").notNull().defaultNow(),
 });
+
+export type AuditAction = "created" | "updated" | "deleted";
+
+export async function logAudit({
+  tableName,
+  recordId,
+  action,
+  previousData,
+  newData,
+  performedBy
+}: {
+  tableName: string;
+  recordId: string;
+  action: AuditAction;
+  previousData?: object;
+  newData?: object;
+  performedBy?: string;
+  reason?: string;
+}) {
+  await db.insert(auditLogs).values({
+    tableName,
+    recordId,
+    action,
+    previousData,
+    newData,
+    performedBy
+  });
+}

@@ -1,42 +1,48 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { users, patients } from "../../../db/schema/users";
+import { auditLogs, type AuditAction } from "../../../db/schema/auditLogs";
 import { parsePgError, RecordNotFoundException } from "../../../utils/exceptions";
-import { withTimestamp } from "../../../utils/softDelete";
-import { type User, type Tx, notDeleted, insertUser, softDeleteUserTx, type NewUser } from "../userRepository";
+import {
+  type User,
+  type Tx,
+  notDeleted,
+  insertUser,
+  softDeleteUserTx,
+  type NewUser,
+} from "../userRepository";
 
 export type NewPatient = typeof patients.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
+export type PatientWithUser = { user: User; patient: Patient };
 
-export async function createPatient(
-  userData: NewUser,
-  patientData: Omit<NewPatient, "userId">
-): Promise<{ user: User; patient: Patient }> {
-  try {
-    return await db.transaction(async (tx: Tx) => {
-      const user = await insertUser(tx, userData);
-      const [patient] = await tx
-        .insert(patients)
-        .values({ ...patientData, userId: user.id })
-        .returning();
-      if (!patient) throw new Error("Failed to create patient");
-      return { user, patient };
-    });
-  } catch (err) {
-    throw parsePgError(err);
-  }
+async function insertPatientAuditLog(
+  tx: Tx,
+  action: AuditAction,
+  recordId: string,
+  previousData?: object,
+  newData?: object,
+  performedBy?: string
+): Promise<void> {
+  await tx.insert(auditLogs).values({
+    tableName: "patients",
+    recordId,
+    action,
+    previousData,
+    newData,
+    performedBy,
+  });
 }
 
-export async function getPatientByUserId(userId: string): Promise<Patient> {
+export async function getPatientByUserId(userId: string): Promise<PatientWithUser> {
   try {
-    const [patient] = await db
-      .select({ patients })
+    const [row] = await db
+      .select()
       .from(patients)
       .innerJoin(users, eq(patients.userId, users.id))
-      .where(and(eq(patients.userId, userId), notDeleted))
-      .then((rows) => rows.map((r) => r.patients));
-    if (!patient) throw new RecordNotFoundException("patients", userId);
-    return patient;
+      .where(and(eq(patients.userId, userId), notDeleted));
+    if (!row) throw new RecordNotFoundException("patients", userId);
+    return { user: row.users, patient: row.patients };
   } catch (err) {
     throw parsePgError(err);
   }
@@ -44,19 +50,15 @@ export async function getPatientByUserId(userId: string): Promise<Patient> {
 
 export async function getPatientByHistoriaClinica(
   numeroHistoriaClinica: string
-): Promise<Patient> {
+): Promise<PatientWithUser> {
   try {
-    const [patient] = await db
-      .select({ patients })
+    const [row] = await db
+      .select()
       .from(patients)
       .innerJoin(users, eq(patients.userId, users.id))
-      .where(
-        and(eq(patients.numeroHistoriaClinica, numeroHistoriaClinica), notDeleted)
-      )
-      .then((rows) => rows.map((r) => r.patients));
-    if (!patient)
-      throw new RecordNotFoundException("patients", numeroHistoriaClinica);
-    return patient;
+      .where(and(eq(patients.numeroHistoriaClinica, numeroHistoriaClinica), notDeleted));
+    if (!row) throw new RecordNotFoundException("patients", numeroHistoriaClinica);
+    return { user: row.users, patient: row.patients };
   } catch (err) {
     throw parsePgError(err);
   }
@@ -65,16 +67,40 @@ export async function getPatientByHistoriaClinica(
 export async function getAllPatients(
   limit: number = 50,
   offset: number = 0
-): Promise<Patient[]> {
+): Promise<PatientWithUser[]> {
   try {
-    return await db
-      .select({ patients })
+    const rows = await db
+      .select()
       .from(patients)
       .innerJoin(users, eq(patients.userId, users.id))
       .where(notDeleted)
       .limit(limit)
-      .offset(offset)
-      .then((rows) => rows.map((r) => r.patients));
+      .offset(offset);
+    return rows.map((r) => ({ user: r.users, patient: r.patients }));
+  } catch (err) {
+    throw parsePgError(err);
+  }
+}
+
+export async function createPatient(
+  userData: NewUser,
+  patientData: Omit<NewPatient, "userId">,
+  performedBy?: string
+): Promise<PatientWithUser> {
+  try {
+    return await db.transaction(async (tx: Tx) => {
+      const user = await insertUser(tx, userData, performedBy);
+
+      const [patient] = await tx
+        .insert(patients)
+        .values({ ...patientData, userId: user.id })
+        .returning();
+      if (!patient) throw new Error("Failed to create patient");
+
+      await insertPatientAuditLog(tx, "created", patient.userId, undefined, patient, performedBy);
+
+      return { user, patient };
+    });
   } catch (err) {
     throw parsePgError(err);
   }
@@ -82,30 +108,51 @@ export async function getAllPatients(
 
 export async function updatePatient(
   userId: string,
-  data: Partial<Omit<NewPatient, "userId">>
-): Promise<Patient> {
+  data: Partial<Omit<NewPatient, "userId">>,
+  performedBy?: string
+): Promise<PatientWithUser> {
   try {
-    const [updated] = await db
-      .update(patients)
-      .set(withTimestamp(data))
-      .where(eq(patients.userId, userId))
-      .returning();
-    if (!updated) throw new RecordNotFoundException("patients", userId);
-    return updated;
+    return await db.transaction(async (tx: Tx) => {
+      const [previous] = await tx
+        .select()
+        .from(patients)
+        .where(eq(patients.userId, userId));
+      if (!previous) throw new RecordNotFoundException("patients", userId);
+
+      const [updated] = await tx
+        .update(patients)
+        .set(data)
+        .where(eq(patients.userId, userId))
+        .returning();
+      if (!updated) throw new RecordNotFoundException("patients", userId);
+
+      await insertPatientAuditLog(tx, "updated", userId, previous, updated, performedBy);
+
+      const [userRow] = await tx
+        .select()
+        .from(users)
+        .where(and(eq(users.id, userId), notDeleted));
+      if (!userRow) throw new RecordNotFoundException("users", userId);
+
+      return { user: userRow, patient: updated };
+    });
   } catch (err) {
     throw parsePgError(err);
   }
 }
 
-export async function deletePatient(userId: string): Promise<void> {
+export async function deletePatient(userId: string, performedBy?: string): Promise<void> {
   try {
     await db.transaction(async (tx: Tx) => {
       const [patient] = await tx
-        .select({ userId: patients.userId })
+        .select()
         .from(patients)
         .where(eq(patients.userId, userId));
       if (!patient) throw new RecordNotFoundException("patients", userId);
-      await softDeleteUserTx(tx, userId);
+
+      await insertPatientAuditLog(tx, "deleted", userId, patient, undefined, performedBy);
+
+      await softDeleteUserTx(tx, userId, performedBy);
     });
   } catch (err) {
     throw parsePgError(err);

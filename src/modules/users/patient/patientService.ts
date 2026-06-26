@@ -1,4 +1,3 @@
-import { getUserById } from "../userRepository";
 import {
   createPatient,
   getPatientByUserId,
@@ -7,6 +6,7 @@ import {
   updatePatient,
   deletePatient,
   type Patient,
+  type PatientWithUser,
 } from "./patientRepository";
 import {
   buildBaseUser,
@@ -24,48 +24,55 @@ export type UpdatePatientInput = Partial<
   Pick<CreatePatientInput, "numeroHistoriaClinica" | "grupoSanguineo">
 >;
 
+export type SafePatientWithUser = { user: SafeUser; patient: Patient };
+
+function toSafePatientWithUser({ user, patient }: PatientWithUser): SafePatientWithUser {
+  return { user: toSafeUser(user), patient };
+}
+
 export async function registerPatient(
-  input: CreatePatientInput
-): Promise<{ user: SafeUser; patient: Patient }> {
+  input: CreatePatientInput,
+  performedBy?: string
+): Promise<SafePatientWithUser> {
   const userData = await buildBaseUser(input);
-  const { user, patient } = await createPatient(userData, {
-    numeroHistoriaClinica: input.numeroHistoriaClinica,
-    grupoSanguineo: input.grupoSanguineo,
-  });
-  return { user: toSafeUser(user), patient };
+  const result = await createPatient(
+    userData,
+    { numeroHistoriaClinica: input.numeroHistoriaClinica, grupoSanguineo: input.grupoSanguineo },
+    performedBy
+  );
+  return toSafePatientWithUser(result);
 }
 
-export async function findPatientByUserId(
-  userId: string
-): Promise<{ user: SafeUser; patient: Patient }> {
-  const [user, patient] = await Promise.all([
-    getUserById(userId),
-    getPatientByUserId(userId),
-  ]);
-  return { user: toSafeUser(user), patient };
-}
-
-export async function editPatient(
-  userId: string,
-  input: UpdatePatientInput
-): Promise<Patient> {
-  return updatePatient(userId, input);
-}
-
-export async function removePatient(userId: string): Promise<void> {
-  await deletePatient(userId);
+export async function findPatientByUserId(userId: string): Promise<SafePatientWithUser> {
+  const result = await getPatientByUserId(userId);
+  return toSafePatientWithUser(result);
 }
 
 export async function findPatientByHistoriaClinica(
   numeroHistoriaClinica: string
-): Promise<Patient> {
-  return getPatientByHistoriaClinica(numeroHistoriaClinica);
+): Promise<SafePatientWithUser> {
+  const result = await getPatientByHistoriaClinica(numeroHistoriaClinica);
+  return toSafePatientWithUser(result);
 }
 
 export async function listPatients(
-  limit: number = 50, 
-  page: number = 0
-): Promise<Patient[]> {
+  limit: number = 50,
+  page: number = 1
+): Promise<SafePatientWithUser[]> {
   const offset = (page - 1) * limit;
-  return getAllPatients(limit, offset);
+  const results = await getAllPatients(limit, offset);
+  return results.map(toSafePatientWithUser);
+}
+
+export async function editPatient(
+  userId: string,
+  input: UpdatePatientInput,
+  performedBy?: string
+): Promise<SafePatientWithUser> {
+  const result = await updatePatient(userId, input, performedBy);
+  return toSafePatientWithUser(result);
+}
+
+export async function removePatient(userId: string, performedBy?: string): Promise<void> {
+  await deletePatient(userId, performedBy);
 }
