@@ -50,9 +50,9 @@ export async function buildBaseUser(input: CreateUserInput) {
   };
 }
 
-export async function registerUser(input: CreateUserInput): Promise<SafeUser> {
+export async function registerUser(input: CreateUserInput, performedBy: string): Promise<SafeUser> {
   const data = await buildBaseUser(input);
-  const user = await createUser(data);
+  const user = await createUser(data, performedBy);
   return toSafeUser(user);
 }
 
@@ -80,20 +80,22 @@ export async function listUsers(
 
 export async function editUser(
   id: string,
-  input: UpdateUserInput
+  input: UpdateUserInput,
+  performedBy: string
 ): Promise<SafeUser> {
   const updateData = {
     ...input,
     fechaNacimiento: input.fechaNacimiento?.toISOString().slice(0, 10),
   };
-  const user = await updateUser(id, updateData);
+  const user = await updateUser(id, updateData, performedBy);
   return toSafeUser(user);
 }
 
 export async function changePassword(
   id: string,
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
+  performedBy: string
 ): Promise<void> {
   const user = await getUserById(id);
 
@@ -101,10 +103,10 @@ export async function changePassword(
   if (!isValid) throw new InvalidCredentialsException();
 
   const hashedPassword = await argon.hash(newPassword);
-  await updatePassword(id, hashedPassword);
+  await updatePassword(id, hashedPassword, performedBy);
 }
 
-export async function removeUser(id: string): Promise<SafeUser> {
-  const user = await deleteUser(id);
+export async function removeUser(id: string, performedBy: string): Promise<SafeUser> {
+  const user = await deleteUser(id, performedBy);
   return toSafeUser(user);
 }
