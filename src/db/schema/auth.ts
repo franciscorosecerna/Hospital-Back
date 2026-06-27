@@ -1,14 +1,16 @@
-import { pgTable, uuid, varchar, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, primaryKey, boolean} from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const roles = pgTable("roles", {
   id: uuid("id").primaryKey(),
   nombre: varchar("nombre", { length: 100 }).notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const permissions = pgTable("permissions", {
   id: uuid("id").primaryKey(),
   nombre: varchar("nombre", { length: 128 }).notNull().unique(),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const userRoles = pgTable(
@@ -45,5 +47,5 @@ export const refreshTokens = pgTable("refresh_tokens", {
   tokenHash: varchar("token_hash", { length: 128 }).notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   expiresAt: timestamp("expires_at").notNull(),
-  revokedAt: timestamp("revoked_at"),
+  revokedAt: timestamp("revoked_at")
 });

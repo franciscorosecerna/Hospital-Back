@@ -9,7 +9,7 @@ export const doctorPatients = pgTable("doctor_patients", {
   patientId: uuid("patient_id")
     .notNull()
     .references(() => patients.userId),
-  fechaAsignacion: date("fecha_asignacion").notNull().default("now()"),
+  fechaAsignacion: date("fecha_asignacion").notNull().defaultNow(),
   fechaFinalizacion: date("fecha_finalizacion"),
 });
 
@@ -23,7 +23,7 @@ export const appointments = pgTable(
     doctorId: uuid("doctor_id")
       .notNull()
       .references(() => doctors.userId),
-    fechaHora: timestamp("fecha_hora").notNull(),
+    fechaHora: timestamp("fecha_hora").notNull().defaultNow(),
     motivo: varchar("motivo", { length: 512 }),
     // Estados: Pendiente | Confirmada | Cancelada | Completada
     estado: varchar("estado", { length: 32 }).notNull().default("Pendiente"),

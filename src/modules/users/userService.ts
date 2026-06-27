@@ -50,7 +50,7 @@ export async function buildBaseUser(input: CreateUserInput) {
   };
 }
 
-export async function registerUser(input: CreateUserInput, performedBy: string): Promise<SafeUser> {
+export async function registerUser(input: CreateUserInput, performedBy?: string): Promise<SafeUser> {
   const data = await buildBaseUser(input);
   const user = await createUser(data, performedBy);
   return toSafeUser(user);
@@ -81,7 +81,7 @@ export async function listUsers(
 export async function editUser(
   id: string,
   input: UpdateUserInput,
-  performedBy: string
+  performedBy?: string
 ): Promise<SafeUser> {
   const updateData = {
     ...input,
@@ -95,7 +95,7 @@ export async function changePassword(
   id: string,
   currentPassword: string,
   newPassword: string,
-  performedBy: string
+  performedBy?: string
 ): Promise<void> {
   const user = await getUserById(id);
 
@@ -106,7 +106,7 @@ export async function changePassword(
   await updatePassword(id, hashedPassword, performedBy);
 }
 
-export async function removeUser(id: string, performedBy: string): Promise<SafeUser> {
+export async function removeUser(id: string, performedBy?: string): Promise<SafeUser> {
   const user = await deleteUser(id, performedBy);
   return toSafeUser(user);
 }

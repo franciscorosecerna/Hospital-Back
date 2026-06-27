@@ -14,29 +14,3 @@ export const auditLogs = pgTable("audit_logs", {
 });
 
 export type AuditAction = "created" | "updated" | "deleted";
-
-export async function logAudit({
-  tableName,
-  recordId,
-  action,
-  previousData,
-  newData,
-  performedBy
-}: {
-  tableName: string;
-  recordId: string;
-  action: AuditAction;
-  previousData?: object;
-  newData?: object;
-  performedBy?: string;
-  reason?: string;
-}) {
-  await db.insert(auditLogs).values({
-    tableName,
-    recordId,
-    action,
-    previousData,
-    newData,
-    performedBy
-  });
-}

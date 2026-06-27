@@ -41,8 +41,8 @@ export async function buildTokenPayload(userId: string): Promise<TokenPayload> {
   };
 }
 
-export async function createRoleService(data: NewRole): Promise<Role> {
-  return createRole(data);
+export async function createRoleService(data: NewRole, performedBy?: string): Promise<Role> {
+  return createRole(data, performedBy);
 }
 
 export async function getRoleById(id: string): Promise<Role | undefined> {
@@ -65,8 +65,8 @@ export async function deleteRoleService(id: string): Promise<void> {
   return deleteRole(id);
 }
 
-export async function createPermissionService(data: NewPermission): Promise<Permission> {
-  return createPermission(data);
+export async function createPermissionService(data: NewPermission, performedBy?: string): Promise<Permission> {
+  return createPermission(data, performedBy);
 }
 
 export async function getPermissionById(id: string): Promise<Permission | undefined> {
@@ -85,28 +85,28 @@ export async function listPermissionsService(
   return listPermissions(limit, offset);
 }
 
-export async function deletePermissionService(id: string): Promise<void> {
-  return deletePermission(id);
+export async function deletePermissionService(id: string, performedBy?: string): Promise<void> {
+  return deletePermission(id, performedBy);
 }
 
-export async function assignRoleToUserService(userId: string, roleId: string): Promise<void> {
-  return assignRoleToUser(userId, roleId);
+export async function assignRoleToUserService(userId: string, roleId: string, performedBy?: string): Promise<void> {
+  return assignRoleToUser(userId, roleId, performedBy);
 }
 
-export async function removeRoleFromUserService(userId: string, roleId: string): Promise<void> {
-  return removeRoleFromUser(userId, roleId);
+export async function removeRoleFromUserService(userId: string, roleId: string, performedBy?: string): Promise<void> {
+  return removeRoleFromUser(userId, roleId, performedBy);
 }
 
 export async function getRolesByUserId(userId: string): Promise<Role[]> {
   return findRolesByUserId(userId);
 }
 
-export async function assignPermissionToRoleService(roleId: string, permissionId: string): Promise<void> {
-  return assignPermissionToRole(roleId, permissionId);
+export async function assignPermissionToRoleService(roleId: string, permissionId: string, performedBy?: string): Promise<void> {
+  return assignPermissionToRole(roleId, permissionId, performedBy);
 }
 
-export async function removePermissionFromRoleService(roleId: string, permissionId: string): Promise<void> {
-  return removePermissionFromRole(roleId, permissionId);
+export async function removePermissionFromRoleService(roleId: string, permissionId: string, performedBy?: string): Promise<void> {
+  return removePermissionFromRole(roleId, permissionId, performedBy);
 }
 
 export async function getPermissionsByRoleId(roleId: string): Promise<Permission[]> {
