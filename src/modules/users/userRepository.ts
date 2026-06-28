@@ -2,30 +2,13 @@ import { eq, and } from "drizzle-orm";
 import { db } from "../../db/client";
 import { users } from "../../db/schema/users";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
-import { auditLogs, type AuditAction } from "../../db/schema/auditLogs";
+import { insertAuditLogTx } from "../auditLogs/auditLogRepository";
 
 export type NewUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export const notDeleted = eq(users.isActive, true);
 
-async function insertAuditLog(
-  tx: Tx,
-  action: AuditAction,
-  recordId: string,
-  previousData?: object,
-  newData?: object,
-  performedBy?: string
-): Promise<void> {
-  await tx.insert(auditLogs).values({
-    tableName: "users",
-    recordId,
-    action,
-    previousData,
-    newData,
-    performedBy,
-  });
-}
 
 export async function getUserById(id: string): Promise<User> {
   try {
@@ -88,7 +71,7 @@ export async function createUser(
       const [user] = await tx.insert(users).values(data).returning();
       if (!user) throw new Error("Failed to create user");
 
-      await insertAuditLog(tx, "created", user.id, undefined, user, performedBy);
+      await insertAuditLogTx(tx, "created", "users", user.id, undefined, user, performedBy);
 
       return user;
     });
@@ -117,7 +100,7 @@ export async function updateUser(
         .returning();
       if (!updated) throw new RecordNotFoundException("users", id);
 
-      await insertAuditLog(tx, "updated", id, previous, updated, performedBy);
+      await insertAuditLogTx(tx, "updated", "users", id, previous, updated, performedBy);
 
       return updated;
     });
@@ -140,7 +123,7 @@ export async function updatePassword(
         .returning({ id: users.id });
       if (!updated) throw new RecordNotFoundException("users", id);
 
-      await insertAuditLog(tx, "updated", id, undefined, undefined, performedBy);
+      await insertAuditLogTx(tx, "updated", "users", id, undefined, undefined, performedBy);
     });
   } catch (err) {
     throw parsePgError(err);
@@ -160,7 +143,7 @@ export async function deleteUser(
         .returning();
       if (!deleted) throw new RecordNotFoundException("users", id);
 
-      await insertAuditLog(tx, "deleted", id, deleted, undefined, performedBy);
+      await insertAuditLogTx(tx, "deleted", "users", id, deleted, undefined, performedBy);
 
       return deleted;
     });
@@ -173,10 +156,11 @@ export async function insertUser(tx: Tx, data: NewUser, performedBy?: string): P
   const [user] = await tx.insert(users).values(data).returning();
   if (!user) throw new Error("Failed to create user");
 
-  await insertAuditLog(tx, "created", user.id, undefined, user, performedBy);
+  await insertAuditLogTx(tx, "created", "users", user.id, undefined, user, performedBy);
 
   return user;
 }
+
 
 export async function softDeleteUserTx(tx: Tx, id: string, performedBy?: string): Promise<void> {
   const [deleted] = await tx
@@ -186,5 +170,5 @@ export async function softDeleteUserTx(tx: Tx, id: string, performedBy?: string)
     .returning();
   if (!deleted) throw new RecordNotFoundException("users", id);
 
-  await insertAuditLog(tx, "deleted", id, deleted, undefined, performedBy);
+  await insertAuditLogTx(tx, "deleted", "users", id, deleted, undefined, performedBy);
 }

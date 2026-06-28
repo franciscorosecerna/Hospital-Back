@@ -1,8 +1,8 @@
 import { db } from "../../db/client";
 import { roles, permissions, userRoles, rolePermissions } from "../../db/schema/auth";
-import { auditLogs, type AuditAction } from "../../db/schema/auditLogs";
 import { eq, and } from "drizzle-orm";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
+import { insertAuditLogTx } from "../auditLogs/auditLogRepository";
 
 export type NewRole = typeof roles.$inferInsert;
 export type Role = typeof roles.$inferSelect;
@@ -10,36 +10,15 @@ export type Role = typeof roles.$inferSelect;
 export type NewPermission = typeof permissions.$inferInsert;
 export type Permission = typeof permissions.$inferSelect;
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
 export const activeRole = eq(roles.isActive, true);
 export const activePermission = eq(permissions.isActive, true);
-
-async function insertAuditLog(
-  tx: Tx,
-  tableName: string,
-  action: AuditAction,
-  recordId: string,
-  previousData?: object,
-  newData?: object,
-  performedBy?: string
-): Promise<void> {
-  await tx.insert(auditLogs).values({
-    tableName,
-    recordId,
-    action,
-    previousData,
-    newData,
-    performedBy,
-  });
-}
 
 export async function createRole(data: NewRole, performedBy?: string): Promise<Role> {
   try {
     return await db.transaction(async (tx) => {
       const [role] = await tx.insert(roles).values(data).returning();
       if (!role) throw new Error("Failed to create role");
-      await insertAuditLog(tx, "roles", "created", role.id, undefined, role, performedBy);
+      await insertAuditLogTx(tx, "created", "roles", role.id, undefined, role, performedBy);
       return role;
     });
   } catch (err) {
@@ -90,7 +69,7 @@ export async function deleteRole(id: string, performedBy?: string): Promise<void
         .where(and(eq(roles.id, id), activeRole))
         .returning();
       if (!deleted) throw new RecordNotFoundException("roles", id);
-      await insertAuditLog(tx, "roles", "deleted", id, deleted, undefined, performedBy);
+      await insertAuditLogTx(tx, "deleted", "roles", id, deleted, undefined, performedBy);
     });
   } catch (err) {
     if (err instanceof RecordNotFoundException) throw err;
@@ -103,7 +82,7 @@ export async function createPermission(data: NewPermission, performedBy?: string
     return await db.transaction(async (tx) => {
       const [permission] = await tx.insert(permissions).values(data).returning();
       if (!permission) throw new Error("Failed to create permission");
-      await insertAuditLog(tx, "permissions", "created", permission.id, undefined, permission, performedBy);
+      await insertAuditLogTx(tx, "created", "permissions", permission.id, undefined, permission, performedBy);
       return permission;
     });
   } catch (err) {
@@ -154,7 +133,7 @@ export async function deletePermission(id: string, performedBy?: string): Promis
         .where(and(eq(permissions.id, id), activePermission))
         .returning();
       if (!deleted) throw new RecordNotFoundException("permissions", id);
-      await insertAuditLog(tx, "permissions", "deleted", id, deleted, undefined, performedBy);
+      await insertAuditLogTx(tx, "deleted", "permissions", id, deleted, undefined, performedBy);
     });
   } catch (err) {
     if (err instanceof RecordNotFoundException) throw err;
@@ -170,8 +149,8 @@ export async function assignRoleToUser(
   try {
     await db.transaction(async (tx) => {
       await tx.insert(userRoles).values({ userId, roleId }).onConflictDoNothing();
-      await insertAuditLog(
-        tx, "user_roles", "created",
+      await insertAuditLogTx(
+        tx, "created", "user_roles",
         userId,
         undefined,
         { userId, roleId },
@@ -193,8 +172,8 @@ export async function removeRoleFromUser(
       await tx
         .delete(userRoles)
         .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
-      await insertAuditLog(
-        tx, "user_roles", "deleted",
+      await insertAuditLogTx(
+        tx, "deleted", "user_roles",
         userId,
         { userId, roleId },
         undefined,
@@ -230,8 +209,8 @@ export async function assignPermissionToRole(
         .insert(rolePermissions)
         .values({ roleId, permissionId })
         .onConflictDoNothing();
-      await insertAuditLog(
-        tx, "role_permissions", "created",
+      await insertAuditLogTx(
+        tx, "created", "role_permissions",
         roleId,
         undefined,
         { roleId, permissionId },
@@ -258,8 +237,8 @@ export async function removePermissionFromRole(
             eq(rolePermissions.permissionId, permissionId)
           )
         );
-      await insertAuditLog(
-        tx, "role_permissions", "deleted",
+      await insertAuditLogTx(
+        tx, "deleted", "role_permissions",
         roleId,
         { roleId, permissionId },
         undefined,

@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { users, nurses } from "../../../db/schema/users";
-import { auditLogs, type AuditAction } from "../../../db/schema/auditLogs";
+import { insertAuditLogTx } from "../../auditLogs/auditLogRepository";
 import { parsePgError, RecordNotFoundException } from "../../../utils/exceptions";
 import {
   type User,
@@ -15,24 +15,6 @@ import {
 export type NewNurse = typeof nurses.$inferInsert;
 export type Nurse = typeof nurses.$inferSelect;
 export type NurseWithUser = { user: User; nurse: Nurse };
-
-async function insertNurseAuditLog(
-  tx: Tx,
-  action: AuditAction,
-  recordId: string,
-  previousData?: object,
-  newData?: object,
-  performedBy?: string
-): Promise<void> {
-  await tx.insert(auditLogs).values({
-    tableName: "nurses",
-    recordId,
-    action,
-    previousData,
-    newData,
-    performedBy,
-  });
-}
 
 export async function getNurseByUserId(userId: string): Promise<NurseWithUser> {
   try {
@@ -119,7 +101,7 @@ export async function createNurse(
         .returning();
       if (!nurse) throw new Error("Failed to create nurse");
 
-      await insertNurseAuditLog(tx, "created", nurse.userId, undefined, nurse, performedBy);
+      await insertAuditLogTx(tx, "created", "nurses", nurse.userId, undefined, nurse, performedBy);
 
       return { user, nurse };
     });
@@ -148,7 +130,7 @@ export async function updateNurse(
         .returning();
       if (!updated) throw new RecordNotFoundException("nurses", userId);
 
-      await insertNurseAuditLog(tx, "updated", userId, previous, updated, performedBy);
+      await insertAuditLogTx(tx, "updated", "nurses", userId, previous, updated, performedBy);
 
       const [userRow] = await tx
         .select()
@@ -172,7 +154,7 @@ export async function deleteNurse(userId: string, performedBy?: string): Promise
         .where(eq(nurses.userId, userId));
       if (!nurse) throw new RecordNotFoundException("nurses", userId);
 
-      await insertNurseAuditLog(tx, "deleted", userId, nurse, undefined, performedBy);
+      await insertAuditLogTx(tx, "deleted", "nurses", userId, nurse, undefined, performedBy);
 
       await softDeleteUserTx(tx, userId, performedBy);
     });

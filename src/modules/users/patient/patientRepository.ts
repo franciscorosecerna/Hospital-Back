@@ -1,7 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../../db/client";
 import { users, patients } from "../../../db/schema/users";
-import { auditLogs, type AuditAction } from "../../../db/schema/auditLogs";
+import { insertAuditLogTx } from "../../auditLogs/auditLogRepository";
 import { parsePgError, RecordNotFoundException } from "../../../utils/exceptions";
 import {
   type User,
@@ -16,23 +16,6 @@ export type NewPatient = typeof patients.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
 export type PatientWithUser = { user: User; patient: Patient };
 
-async function insertPatientAuditLog(
-  tx: Tx,
-  action: AuditAction,
-  recordId: string,
-  previousData?: object,
-  newData?: object,
-  performedBy?: string
-): Promise<void> {
-  await tx.insert(auditLogs).values({
-    tableName: "patients",
-    recordId,
-    action,
-    previousData,
-    newData,
-    performedBy,
-  });
-}
 
 export async function getPatientByUserId(userId: string): Promise<PatientWithUser> {
   try {
@@ -97,7 +80,7 @@ export async function createPatient(
         .returning();
       if (!patient) throw new Error("Failed to create patient");
 
-      await insertPatientAuditLog(tx, "created", patient.userId, undefined, patient, performedBy);
+      await insertAuditLogTx(tx, "created", "patients", patient.userId, undefined, patient, performedBy);
 
       return { user, patient };
     });
@@ -126,7 +109,7 @@ export async function updatePatient(
         .returning();
       if (!updated) throw new RecordNotFoundException("patients", userId);
 
-      await insertPatientAuditLog(tx, "updated", userId, previous, updated, performedBy);
+      await insertAuditLogTx(tx, "updated", "patients", userId, previous, updated, performedBy);
 
       const [userRow] = await tx
         .select()
@@ -150,7 +133,7 @@ export async function deletePatient(userId: string, performedBy?: string): Promi
         .where(eq(patients.userId, userId));
       if (!patient) throw new RecordNotFoundException("patients", userId);
 
-      await insertPatientAuditLog(tx, "deleted", userId, patient, undefined, performedBy);
+      await insertAuditLogTx(tx, "deleted", "patients", userId, patient, undefined, performedBy);
 
       await softDeleteUserTx(tx, userId, performedBy);
     });
