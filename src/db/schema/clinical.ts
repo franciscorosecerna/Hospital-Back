@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, date, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, date, boolean, unique } from "drizzle-orm/pg-core";
 import { doctors, patients } from "./users";
 
 export const doctorPatients = pgTable("doctor_patients", {
@@ -45,6 +45,7 @@ export const diagnoses = pgTable("diagnoses", {
   codigo: varchar("codigo", { length: 16 }),
   descripcion: varchar("descripcion", { length: 512 }).notNull(),
   fechaRegistro: timestamp("fecha_registro").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const allergies = pgTable(
@@ -59,6 +60,7 @@ export const allergies = pgTable(
     severidad: varchar("severidad", { length: 32 }).notNull(),
     reaccion: varchar("reaccion", { length: 512 }),
     fechaRegistro: timestamp("fecha_registro").notNull().defaultNow(),
+    isActive: boolean("is_active").notNull().default(true),
   },
   (t) => [unique("uq_allergy").on(t.patientId, t.sustancia)]
 );
@@ -76,4 +78,5 @@ export const procedures = pgTable("procedures", {
   descripcion: varchar("descripcion", { length: 1024 }),
   fechaHora: timestamp("fecha_hora").notNull(),
   resultado: varchar("resultado", { length: 512 }),
+  isActive: boolean("is_active").notNull().default(true),
 });
