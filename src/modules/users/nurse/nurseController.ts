@@ -8,10 +8,14 @@ import {
   editNurse,
   removeNurse,
 } from "./nurseService";
+import type { TokenPayload } from "../../authorization/authorizationService";
 
-export async function createNurse(c: Context) {
+type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
+
+export async function createNurse(c: AuthedContext) {
   const input = c.req.valid("json" as never);
-  const result = await registerNurse(input);
+  const performedBy = c.get("user").sub;
+  const result = await registerNurse(input, performedBy);
   return c.json(result, 201);
 }
 
@@ -40,15 +44,17 @@ export async function getNurseById(c: Context) {
   return c.json(result);
 }
 
-export async function updateNurse(c: Context) {
+export async function updateNurse(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
   const input = c.req.valid("json" as never);
-  const nurse = await editNurse(id, input);
+  const performedBy = c.get("user").sub;
+  const nurse = await editNurse(id, input, performedBy);
   return c.json(nurse);
 }
 
-export async function deleteNurse(c: Context) {
+export async function deleteNurse(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
-  await removeNurse(id);
+  const performedBy = c.get("user").sub;
+  await removeNurse(id, performedBy);
   return c.json({ message: "Enfermero/a eliminado/a correctamente." });
 }

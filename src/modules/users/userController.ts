@@ -8,10 +8,14 @@ import {
   changePassword,
   removeUser,
 } from "./userService";
+import type { TokenPayload } from "../authorization/authorizationService";
 
-export async function createUser(c: Context) {
+type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
+
+export async function createUser(c: AuthedContext) {
   const input = c.req.valid("json" as never);
-  const user = await registerUser(input);
+  const performedBy = c.get("user").sub;
+  const user = await registerUser(input, performedBy);
   return c.json(user, 201);
 }
 
@@ -34,22 +38,25 @@ export async function getUserById(c: Context) {
   return c.json(user);
 }
 
-export async function updateUser(c: Context) {
+export async function updateUser(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
   const input = c.req.valid("json" as never);
-  const user = await editUser(id, input);
+  const performedBy = c.get("user").sub;
+  const user = await editUser(id, input, performedBy);
   return c.json(user);
 }
 
-export async function updatePassword(c: Context) {
+export async function updatePassword(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
   const { currentPassword, newPassword } = c.req.valid("json" as never);
-  await changePassword(id, currentPassword, newPassword);
+  const performedBy = c.get("user").sub;
+  await changePassword(id, currentPassword, newPassword, performedBy);
   return c.json({ message: "Contraseña actualizada correctamente." });
 }
 
-export async function deleteUser(c: Context) {
+export async function deleteUser(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
-  const user = await removeUser(id);
+  const performedBy = c.get("user").sub;
+  const user = await removeUser(id, performedBy);
   return c.json(user);
 }

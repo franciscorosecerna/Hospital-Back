@@ -7,10 +7,14 @@ import {
   editDoctor,
   removeDoctor,
 } from "./doctorService";
+import type { TokenPayload } from "../../authorization/authorizationService";
 
-export async function createDoctor(c: Context) {
+type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
+
+export async function createDoctor(c: AuthedContext) {
   const input = c.req.valid("json" as never);
-  const result = await registerDoctor(input);
+  const performedBy = c.get("user").sub;
+  const result = await registerDoctor(input, performedBy);
   return c.json(result, 201);
 }
 
@@ -33,15 +37,17 @@ export async function getDoctorById(c: Context) {
   return c.json(result);
 }
 
-export async function updateDoctor(c: Context) {
+export async function updateDoctor(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
   const input = c.req.valid("json" as never);
-  const doctor = await editDoctor(id, input);
+  const performedBy = c.get("user").sub;
+  const doctor = await editDoctor(id, input, performedBy);
   return c.json(doctor);
 }
 
-export async function deleteDoctor(c: Context) {
+export async function deleteDoctor(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
-  await removeDoctor(id);
+  const performedBy = c.get("user").sub;
+  await removeDoctor(id, performedBy);
   return c.json({ message: "Doctor eliminado correctamente." });
 }

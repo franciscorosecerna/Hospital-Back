@@ -17,11 +17,15 @@ import {
   removePermissionFromRoleService,
   getPermissionsByRoleId,
   getPermissionsByUserId,
+  type TokenPayload,
 } from "./authorizationService";
 
-export async function createRole(c: Context) {
+type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
+
+export async function createRole(c: AuthedContext) {
   const input = c.req.valid("json" as never);
-  const role = await createRoleService(input);
+  const user = c.get("user").sub;
+  const role = await createRoleService(input, user);
   return c.json(role, 201);
 }
 
@@ -44,15 +48,17 @@ export async function getRoleByNameController(c: Context) {
   return c.json(role);
 }
 
-export async function deleteRole(c: Context) {
+export async function deleteRole(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
-  await deleteRoleService(id);
+  const user = c.get("user").sub;
+  await deleteRoleService(id, user);
   return c.json({ message: "Rol eliminado correctamente." });
 }
 
-export async function createPermission(c: Context) {
+export async function createPermission(c: AuthedContext) {
   const input = c.req.valid("json" as never);
-  const permission = await createPermissionService(input);
+  const user = c.get("user").sub;
+  const permission = await createPermissionService(input, user);
   return c.json(permission, 201);
 }
 
@@ -75,21 +81,24 @@ export async function getPermissionByNameController(c: Context) {
   return c.json(permission);
 }
 
-export async function deletePermission(c: Context) {
+export async function deletePermission(c: AuthedContext) {
   const { id } = c.req.valid("param" as never);
-  await deletePermissionService(id);
+  const user = c.get("user").sub;
+  await deletePermissionService(id, user);
   return c.json({ message: "Permiso eliminado correctamente." });
 }
 
-export async function assignRoleToUser(c: Context) {
+export async function assignRoleToUser(c: AuthedContext) {
   const { userId, roleId } = c.req.valid("param" as never);
-  await assignRoleToUserService(userId, roleId);
+  const user = c.get("user").sub;
+  await assignRoleToUserService(userId, roleId, user);
   return c.json({ message: "Rol asignado correctamente." }, 201);
 }
 
-export async function removeRoleFromUser(c: Context) {
+export async function removeRoleFromUser(c: AuthedContext) {
   const { userId, roleId } = c.req.valid("param" as never);
-  await removeRoleFromUserService(userId, roleId);
+  const user = c.get("user").sub;
+  await removeRoleFromUserService(userId, roleId, user);
   return c.json({ message: "Rol removido correctamente." });
 }
 

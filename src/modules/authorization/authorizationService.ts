@@ -61,8 +61,8 @@ export async function listRolesService(
   return listRoles(limit, offset);
 }
 
-export async function deleteRoleService(id: string): Promise<void> {
-  return deleteRole(id);
+export async function deleteRoleService(id: string, performedBy?: string): Promise<void> {
+  return deleteRole(id, performedBy);
 }
 
 export async function createPermissionService(data: NewPermission, performedBy?: string): Promise<Permission> {
