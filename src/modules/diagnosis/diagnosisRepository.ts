@@ -21,12 +21,14 @@ export async function getDiagnosisById(id: string): Promise<Diagnosis> {
   }
 }
 
-export async function getDiagnosesByPatient(patientId: string): Promise<Diagnosis[]> {
+export async function getDiagnosesByPatient(patientId: string, limit: number, offset: number): Promise<Diagnosis[]> {
   try {
     return await db
       .select()
       .from(diagnoses)
-      .where(and(eq(diagnoses.patientId, patientId), notDeleted));
+      .where(and(eq(diagnoses.patientId, patientId), notDeleted))
+      .limit(limit)
+      .offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }

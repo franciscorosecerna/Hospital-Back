@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const uuidSchema = z.string().uuid();
+const uuidSchema = z.uuid();
 
 export const auditActionSchema = z.enum(["created", "updated", "deleted"]);
 
