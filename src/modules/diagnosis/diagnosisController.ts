@@ -32,8 +32,7 @@ export async function getDiagnosesByAppointment(c: AuthedContext) {
 
 export async function getDiagnosesByPatient(c: AuthedContext) {
   const { patientId } = c.req.valid("param" as never);
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+  const { limit, page } = c.req.valid("query" as never);
   const diagnoses = await fetchDiagnosesByPatient(patientId, limit, page);
   return c.json(diagnoses);
 }
