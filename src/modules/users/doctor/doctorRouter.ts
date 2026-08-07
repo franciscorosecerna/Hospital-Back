@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createDoctorSchema, idParamSchema, updateDoctorSchema } from "../userSchema";
+import { createDoctorSchema, idParamSchema, paginationQuerySchema, updateDoctorSchema } from "../userSchema";
 import {
   createDoctor,
   getDoctors,
@@ -12,8 +12,9 @@ import {
 } from "./doctorController";
 import { authMiddleware } from "../../../middleware/authMiddleware";
 import { requirePermission } from "../../../middleware/permissionMiddleware";
+import type { TokenPayload } from "../../authorization/authorizationService";
 
-export const doctorRouter = new Hono();
+export const doctorRouter = new Hono<{ Variables: { user: TokenPayload } }>();;
 
 doctorRouter.post("/",
   authMiddleware,
@@ -22,7 +23,12 @@ doctorRouter.post("/",
   createDoctor
 );
 
-doctorRouter.get("/", authMiddleware, requirePermission("doctors:read"), getDoctors);
+doctorRouter.get("/",
+  authMiddleware,
+  requirePermission("doctors:read"),
+  zValidator("query", paginationQuerySchema),
+  getDoctors
+);
 
 doctorRouter.get(
   "/by-matricula/:matricula",

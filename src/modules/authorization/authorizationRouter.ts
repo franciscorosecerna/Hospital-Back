@@ -11,6 +11,7 @@ import {
   userIdParamSchema,
   rolePermissionParamSchema,
   roleIdOnlyParamSchema,
+  paginationQuerySchema,
 } from "./authorizationSchema";
 import {
   createRole,
@@ -33,8 +34,9 @@ import {
 } from "./authorizationController";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission } from "../../middleware/permissionMiddleware";
+import type { TokenPayload } from "./authorizationService";
 
-export const authorizationRouter = new Hono();
+export const authorizationRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 authorizationRouter.post(
   "/roles",
@@ -48,6 +50,7 @@ authorizationRouter.get(
   "/roles",
   authMiddleware,
   requirePermission("roles:read"),
+  zValidator("query", paginationQuerySchema),
   getRoles
 );
 
@@ -87,6 +90,7 @@ authorizationRouter.get(
   "/permissions",
   authMiddleware,
   requirePermission("permissions:read"),
+  zValidator("query", paginationQuerySchema),
   getPermissions
 );
 

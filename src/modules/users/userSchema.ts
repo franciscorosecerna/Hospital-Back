@@ -66,3 +66,8 @@ export const updateNurseSchema = z.object({
 export const idParamSchema = z.object({
   id: z.uuid("El ID debe ser un UUID válido"),
 });
+
+export const paginationQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional().default(50),
+  page: z.coerce.number().int().positive().optional().default(1),
+});

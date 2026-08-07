@@ -5,6 +5,7 @@ import {
   baseUserSchema,
   changePasswordSchema,
   idParamSchema,
+  paginationQuerySchema,
   updateUserSchema,
 } from "./userSchema";
 import {
@@ -18,12 +19,18 @@ import {
 } from "./userController";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission} from "../../middleware/permissionMiddleware";
+import type { TokenPayload } from "../authorization/authorizationService";
 
-export const userRouter = new Hono();
+export const userRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 userRouter.post("/", zValidator("json", baseUserSchema), createUser);
 
-userRouter.get("/", authMiddleware, requirePermission("users:read"), getUsers);
+userRouter.get("/",
+  authMiddleware,
+  requirePermission("users:read"),
+  zValidator("query", paginationQuerySchema),
+  getUsers
+);
 
 userRouter.get(
   "/by-documento/:tipoDocumento/:documento",

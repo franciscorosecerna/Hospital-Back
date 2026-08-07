@@ -19,8 +19,7 @@ export async function createDoctor(c: AuthedContext) {
 }
 
 export async function getDoctors(c: Context) {
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+  const { limit, page } = c.req.valid("query" as never);
   const doctors = await listDoctors(limit, page);
   return c.json(doctors);
 }

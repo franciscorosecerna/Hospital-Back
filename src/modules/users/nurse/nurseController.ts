@@ -20,21 +20,22 @@ export async function createNurse(c: AuthedContext) {
 }
 
 export async function getNurses(c: Context) {
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+  const { limit, page } = c.req.valid("query" as never);
   const nurses = await listNurses(limit, page);
   return c.json(nurses);
 }
 
 export async function getNursesByDepartment(c: Context) {
   const { departmentId } = c.req.valid("param" as never);
-  const nurses = await listNursesByDepartment(departmentId);
+  const { limit, page } = c.req.valid("query" as never);
+  const nurses = await listNursesByDepartment(departmentId, limit, page);
   return c.json(nurses);
 }
 
 export async function getNursesByTurno(c: Context) {
   const { turno } = c.req.valid("param" as never);
-  const nurses = await listNursesByTurno(turno);
+  const { limit, page } = c.req.valid("query" as never);
+  const nurses = await listNursesByTurno(turno, limit, page);
   return c.json(nurses);
 }
 

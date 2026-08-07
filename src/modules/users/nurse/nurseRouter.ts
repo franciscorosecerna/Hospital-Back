@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { createNurseSchema, idParamSchema, updateNurseSchema } from "../userSchema";
+import { createNurseSchema, idParamSchema, paginationQuerySchema, updateNurseSchema } from "../userSchema";
 import {
   createNurse,
   getNurses,
@@ -13,8 +13,9 @@ import {
 } from "./nurseController";
 import { authMiddleware } from "../../../middleware/authMiddleware";
 import { requirePermission } from "../../../middleware/permissionMiddleware";
+import type { TokenPayload } from "../../authorization/authorizationService";
 
-export const nurseRouter = new Hono();
+export const nurseRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 nurseRouter.post("/",
   authMiddleware,
@@ -23,13 +24,19 @@ nurseRouter.post("/",
   createNurse
 );
 
-nurseRouter.get("/", authMiddleware, requirePermission("nurses:read"), getNurses);
+nurseRouter.get("/",
+  authMiddleware,
+  requirePermission("nurses:read"),
+  zValidator("query", paginationQuerySchema),
+  getNurses
+);
 
 nurseRouter.get(
   "/by-department/:departmentId",
   authMiddleware,
   requirePermission("nurses:read"),
   zValidator("param", idParamSchema),
+  zValidator("query", paginationQuerySchema),
   getNursesByDepartment
 );
 
@@ -38,6 +45,7 @@ nurseRouter.get(
   authMiddleware,
   requirePermission("nurses:read"),
   zValidator("param", z.object({ turno: z.string().min(1).max(64) })),
+  zValidator("query", paginationQuerySchema),
   getNursesByTurno
 );
 

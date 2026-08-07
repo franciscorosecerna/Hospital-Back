@@ -30,8 +30,7 @@ export async function createRole(c: AuthedContext) {
 }
 
 export async function getRoles(c: Context) {
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+ const { limit, page } = c.req.valid("query" as never);
   const roles = await listRolesService(limit, page);
   return c.json(roles);
 }
@@ -63,8 +62,7 @@ export async function createPermission(c: AuthedContext) {
 }
 
 export async function getPermissions(c: Context) {
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+  const { limit, page } = c.req.valid("query" as never);
   const permissions = await listPermissionsService(limit, page);
   return c.json(permissions);
 }

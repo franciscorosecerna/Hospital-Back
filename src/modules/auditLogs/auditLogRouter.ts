@@ -12,8 +12,9 @@ import {
 } from "./auditLogSchema";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import {requireRole } from "../../middleware/permissionMiddleware";
+import type { TokenPayload } from "../authorization/authorizationService";
 
-const auditLogRouter = new Hono();
+const auditLogRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 auditLogRouter.get(
   "/",

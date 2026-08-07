@@ -20,8 +20,7 @@ export async function createUser(c: AuthedContext) {
 }
 
 export async function getUsers(c: Context) {
-  const limit = Number(c.req.query("limit") ?? 50);
-  const page = Number(c.req.query("page") ?? 1);
+  const { limit, page } = c.req.valid("query" as never);
   const users = await listUsers(limit, page);
   return c.json(users);
 }

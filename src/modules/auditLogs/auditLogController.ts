@@ -13,8 +13,7 @@ export async function getAuditLogByIdHandler(c: Context) {
 
 export async function getAllAuditLogsHandler(c: Context) {
   const filters = c.req.valid("query" as never);
-  const limit = parseInt(c.req.query("limit") || "50", 10);
-  const page = parseInt(c.req.query("page") || "0", 10);
+  const { limit, page } = c.req.valid("query" as never);
   const auditLogs = await getAll(filters, limit, page);
   return c.json(auditLogs, 200);
 }
