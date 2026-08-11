@@ -1,15 +1,16 @@
-import { pgTable, uuid, varchar, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, jsonb, timestamp} from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { sql } from "drizzle-orm";
 
 export const auditLogs = pgTable("audit_logs", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
   tableName: varchar("table_name", { length: 100 }).notNull(),
   recordId: uuid("record_id").notNull(),
   action: varchar("action", { length: 50 }).notNull(), // "created" | "updated" | "deleted"
   previousData: jsonb("previous_data"),
   newData: jsonb("new_data"),
   performedBy: uuid("performed_by").references(() => users.id),
-  performedAt: timestamp("performed_at").notNull().defaultNow(),
+  performedAt: timestamp("performed_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type AuditAction = "created" | "updated" | "deleted";

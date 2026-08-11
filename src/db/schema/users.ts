@@ -1,9 +1,10 @@
+import { sql } from "drizzle-orm";
 import { pgTable, uuid, varchar, date, timestamp, unique, boolean } from "drizzle-orm/pg-core";
 
 export const users = pgTable(
   "users",
   {
-    id: uuid("id").primaryKey(),
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
     nombre: varchar("nombre", { length: 256 }).notNull(),
     apellido: varchar("apellido", { length: 256 }).notNull(),
     tipoDocumento: varchar("tipo_documento", { length: 32 }).notNull(),

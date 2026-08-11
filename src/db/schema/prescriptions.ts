@@ -4,18 +4,18 @@ import { doctors, patients } from "./users";
 import { appointments } from "./clinical";
 
 export const certificateAuthorities = pgTable("certificate_authorities", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
   nombre: varchar("nombre", { length: 256 }).notNull().unique(),
   // Certificado raíz X.509 en PEM
   certificadoRaiz: text("certificado_raiz").notNull(),
   crlEndpoint: varchar("crl_endpoint", { length: 512 }),
   ocspEndpoint: varchar("ocsp_endpoint", { length: 512 }),
-  validoDesde: timestamp("valido_desde").notNull(),
-  validoHasta: timestamp("valido_hasta").notNull(),
+  validoDesde: timestamp("valido_desde", { withTimezone: true }).notNull(),
+  validoHasta: timestamp("valido_hasta", { withTimezone: true }).notNull(),
 });
 
 export const doctorCertificates = pgTable("doctor_certificates", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
   doctorId: uuid("doctor_id")
     .notNull()
     .references(() => doctors.userId),
@@ -25,14 +25,14 @@ export const doctorCertificates = pgTable("doctor_certificates", {
   // Certificado X.509 en PEM
   certificadoPublico: text("certificado_publico").notNull(),
   numeroSerie: varchar("numero_serie", { length: 256 }).notNull().unique(),
-  validoDesde: timestamp("valido_desde").notNull(),
-  validoHasta: timestamp("valido_hasta").notNull(),
-  revokedAt: timestamp("revoked_at"),
+  validoDesde: timestamp("valido_desde", { withTimezone: true }).notNull(),
+  validoHasta: timestamp("valido_hasta", { withTimezone: true }).notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
   motivoRevocacion: varchar("motivo_revocacion", { length: 256 }),
 });
 
 export const medications = pgTable("medications", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
   nombre: varchar("nombre", { length: 256 }).notNull().unique(),
   descripcion: varchar("descripcion", { length: 512 }),
   // ej: "Comprimido 500mg", "Jarabe 250ml"
@@ -42,7 +42,7 @@ export const medications = pgTable("medications", {
 export const prescriptions = pgTable(
   "prescriptions",
   {
-    id: uuid("id").primaryKey(),
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
     appointmentId: uuid("appointment_id")
       .notNull()
       .unique()
@@ -53,17 +53,17 @@ export const prescriptions = pgTable(
     patientId: uuid("patient_id")
       .notNull()
       .references(() => patients.userId),
-    fechaEmision: timestamp("fecha_emision").notNull().defaultNow(),
+    fechaEmision: timestamp("fecha_emision", { withTimezone: true }).notNull().defaultNow(),
     observaciones: varchar("observaciones", { length: 1024 }),
     estado: varchar("estado", { length: 32 }).notNull().default("Borrador"),
     certificateId: uuid("certificate_id").references(
       () => doctorCertificates.id
     ),
-    firmadaAt: timestamp("firmada_at"),
+    firmadaAt: timestamp("firmada_at", { withTimezone: true }),
     documentHash: varchar("document_hash", { length: 512 }),
     signature: text("signature"),
     signatureAlgorithm: varchar("signature_algorithm", { length: 64 }),
-    anuladaAt: timestamp("anulada_at"),
+    anuladaAt: timestamp("anulada_at", { withTimezone: true }),
     motivoAnulacion: varchar("motivo_anulacion", { length: 512 }),
     anuladaPorDoctorId: uuid("anulada_por_doctor_id").references(
       () => doctors.userId
@@ -95,7 +95,7 @@ export const prescriptions = pgTable(
 export const prescriptionItems = pgTable(
   "prescription_items",
   {
-    id: uuid("id").primaryKey(),
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
     prescriptionId: uuid("prescription_id")
       .notNull()
       .references(() => prescriptions.id),
@@ -111,13 +111,13 @@ export const prescriptionItems = pgTable(
 );
 
 export const signatureVerifications = pgTable("signature_verifications", {
-  id: uuid("id").primaryKey(),
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
   prescriptionId: uuid("prescription_id")
     .notNull()
     .references(() => prescriptions.id),
   // NULL si es verificación externa/anónima
   verificadoPorUserId: uuid("verificado_por_user_id"),
-  verificadoAt: timestamp("verificado_at").notNull().defaultNow(),
+  verificadoAt: timestamp("verificado_at", { withTimezone: true }).notNull().defaultNow(),
   // Resultados: Valida | Invalida | CertificadoExpirado | Revocado
   resultado: varchar("resultado", { length: 32 }).notNull(),
   detalle: varchar("detalle", { length: 512 }),

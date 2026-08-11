@@ -1,7 +1,7 @@
 import { sign, verify } from "hono/jwt";
 import { createHash } from "crypto";
 import argon from "argon2";
-import { v4 as uuidv4 } from "uuid";
+import { v7 as uuidv7 } from "uuid";
 import { getUserByDocumento } from "../users/userRepository";
 import {
   createRefreshToken,
@@ -76,7 +76,7 @@ export async function login(input: LoginInput): Promise<AuthTokens> {
   const payload = await buildTokenPayload(user.id);
   const accessToken = await signAccessToken(payload);
 
-  const jti = uuidv4();
+  const jti = uuidv7();
   const rawRefreshToken = await signRefreshToken(user.id, jti);
 
   await createRefreshToken({
@@ -114,7 +114,7 @@ export async function refresh(rawRefreshToken: string): Promise<AuthTokens> {
     throw new InvalidCredentialsException();
   }
 
-  const newJti = uuidv4();
+  const newJti = uuidv7();
   const newRawRefreshToken = await signRefreshToken(decoded.sub, newJti);
   const payload = await buildTokenPayload(decoded.sub);
   const accessToken = await signAccessToken(payload);
