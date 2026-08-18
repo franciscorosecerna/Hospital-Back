@@ -9,7 +9,14 @@ app.get('/', (c) => {
     });
 });
 
+app.get("/health", (c) => {
+    return c.json({
+        status: "ok",
+        instance: process.env.INSTANCE_NAME
+    });
+});
+
 export default {
-    port: process.env.PORT!,
+    port: Number(process.env.PORT!),
     fetch: app.fetch
 };
