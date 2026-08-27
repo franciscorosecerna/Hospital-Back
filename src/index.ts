@@ -18,5 +18,6 @@ app.get("/health", (c) => {
 
 export default {
     port: Number(process.env.PORT!),
+    hostname: "0.0.0.0",
     fetch: app.fetch
 };
