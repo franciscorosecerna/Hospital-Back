@@ -1,0 +1,38 @@
+# Dependencias locales
+node_modules
+
+# Control de versiones
+.git
+.gitignore
+
+# Variables de entorno y secretos
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+
+# IDEs
+.vscode
+.idea
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Cache
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# Docker
+docker-compose.override.yml
