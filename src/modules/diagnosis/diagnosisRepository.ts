@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc} from "drizzle-orm";
 import { db } from "../../db/client";
 import { diagnoses } from "../../db/schema/clinical";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
@@ -27,6 +27,7 @@ export async function getDiagnosesByPatient(patientId: string, limit: number, of
       .select()
       .from(diagnoses)
       .where(and(eq(diagnoses.patientId, patientId), notDeleted))
+      .orderBy(desc(diagnoses.fechaRegistro))
       .limit(limit)
       .offset(offset);
   } catch (err) {

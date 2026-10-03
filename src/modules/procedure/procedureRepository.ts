@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { procedures } from "../../db/schema/clinical";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
@@ -27,6 +27,7 @@ export async function getProceduresByPatient(patientId: string, limit: number, o
       .select()
       .from(procedures)
       .where(and(eq(procedures.patientId, patientId), notDeleted))
+      .orderBy(desc(procedures.fechaHora))
       .limit(limit)
       .offset(offset);
   } catch (err) {
@@ -40,6 +41,7 @@ export async function getProceduresByDoctor(doctorId: string, limit: number, off
       .select()
       .from(procedures)
       .where(and(eq(procedures.doctorId, doctorId), notDeleted))
+      .orderBy(desc(procedures.fechaHora))
       .limit(limit)
       .offset(offset);
   } catch (err) {
@@ -54,7 +56,8 @@ export async function getProceduresByAppointment(
     return await db
       .select()
       .from(procedures)
-      .where(and(eq(procedures.appointmentId, appointmentId), notDeleted));
+      .where(and(eq(procedures.appointmentId, appointmentId), notDeleted))
+      .orderBy(desc(procedures.fechaHora));
   } catch (err) {
     throw parsePgError(err);
   }

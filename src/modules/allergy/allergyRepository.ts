@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc} from "drizzle-orm";
 import { db } from "../../db/client";
 import { allergies } from "../../db/schema/clinical";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
@@ -50,6 +50,7 @@ export async function getAllergiesByPatient(patientId: string, limit: number, of
       .select()
       .from(allergies)
       .where(and(eq(allergies.patientId, patientId), notDeleted))
+      .orderBy(desc(allergies.fechaRegistro))
       .limit(limit)
       .offset(offset);
   } catch (err) {
