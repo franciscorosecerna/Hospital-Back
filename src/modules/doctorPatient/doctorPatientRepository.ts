@@ -3,7 +3,6 @@ import { db } from "../../db/client";
 import { doctorPatients } from "../../db/schema/clinical";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
 import { insertAuditLogTx } from "../auditLogs/auditLogRepository";
-import type { Tx } from "../users/userRepository";
 
 export type NewDoctorPatient = typeof doctorPatients.$inferInsert;
 export type DoctorPatient = typeof doctorPatients.$inferSelect;
@@ -38,14 +37,18 @@ export async function getActiveAssignmentsByPatient(
 }
 
 export async function getActiveAssignmentsByDoctor(
-  doctorId: string
+  doctorId: string,
+  limit: number = 50,
+  offset: number = 0
 ): Promise<DoctorPatient[]> {
   try {
     return await db
       .select()
       .from(doctorPatients)
       .where(and(eq(doctorPatients.doctorId, doctorId), notFinalized))
-      .orderBy(desc(doctorPatients.fechaAsignacion));
+      .orderBy(desc(doctorPatients.fechaAsignacion))
+      .limit(limit)
+      .offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }
