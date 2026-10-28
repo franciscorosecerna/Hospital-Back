@@ -1,4 +1,4 @@
-import { eq, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { db } from "../../db/client";
 import { appointments } from "../../db/schema/clinical";
 import { parsePgError, RecordNotFoundException } from "../../utils/exceptions";
@@ -29,7 +29,7 @@ export async function getAppointmentsByPatient(
     return await db
       .select()
       .from(appointments)
-      .where(eq(appointments.patientId, patientId))
+      .where(and(eq(appointments.patientId, patientId), notCancelled))
       .orderBy(appointments.fechaHora);
   } catch (err) {
     throw parsePgError(err);
@@ -37,14 +37,18 @@ export async function getAppointmentsByPatient(
 }
 
 export async function getAppointmentsByDoctor(
-  doctorId: string
+  doctorId: string,
+  limit: number = 50,
+  offset: number = 0
 ): Promise<Appointment[]> {
   try {
     return await db
       .select()
       .from(appointments)
-      .where(eq(appointments.doctorId, doctorId))
-      .orderBy(appointments.fechaHora);
+      .where(and(eq(appointments.doctorId, doctorId), notCancelled))
+      .orderBy(appointments.fechaHora)
+      .limit(limit)
+      .offset(offset);
   } catch (err) {
     throw parsePgError(err);
   }

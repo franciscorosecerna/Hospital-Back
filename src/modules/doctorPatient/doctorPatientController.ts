@@ -18,7 +18,8 @@ export async function getAssignmentsForPatient(c: AuthedContext) {
 
 export async function getAssignmentsForDoctor(c: AuthedContext) {
     const { doctorId } = c.req.valid("param" as never);
-    const assignments = await getActiveAssignmentsForDoctor(doctorId);
+    const { limit, page } = c.req.valid("query" as never);
+    const assignments = await getActiveAssignmentsForDoctor(doctorId, page, limit);
     return c.json(assignments);
 }
 
