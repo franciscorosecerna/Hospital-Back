@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, text, unique, check } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, text, unique, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { doctors, patients } from "./users";
 import { appointments } from "./clinical";
@@ -45,7 +45,6 @@ export const prescriptions = pgTable(
     id: uuid("id").primaryKey().default(sql`uuidv7()`),
     appointmentId: uuid("appointment_id")
       .notNull()
-      .unique()
       .references(() => appointments.id),
     doctorId: uuid("doctor_id")
       .notNull()
@@ -70,14 +69,23 @@ export const prescriptions = pgTable(
     ),
   },
   (t) => [
+    // Permite emitir una nueva receta para el mismo turno si la anterior fue Anulada
+    uniqueIndex("uq_active_prescription_appointment")
+      .on(t.appointmentId)
+      .where(sql`${t.estado} != 'Anulada'`),
+    check(
+      "chk_estado",
+      sql`${t.estado} IN ('Borrador', 'Firmada', 'Anulada')`
+    ),
     // Si está Firmada, todos los campos de firma deben estar presentes
     check(
       "chk_firma",
       sql`(${t.estado} != 'Firmada') OR (
-        ${t.certificateId} IS NOT NULL AND
-        ${t.firmadaAt}     IS NOT NULL AND
-        ${t.documentHash}  IS NOT NULL AND
-        ${t.signature}     IS NOT NULL
+        ${t.certificateId}      IS NOT NULL AND
+        ${t.firmadaAt}          IS NOT NULL AND
+        ${t.documentHash}       IS NOT NULL AND
+        ${t.signature}          IS NOT NULL AND
+        ${t.signatureAlgorithm} IS NOT NULL
       )`
     ),
     // Si está Anulada, debe tener motivo y responsable
@@ -98,7 +106,7 @@ export const prescriptionItems = pgTable(
     id: uuid("id").primaryKey().default(sql`uuidv7()`),
     prescriptionId: uuid("prescription_id")
       .notNull()
-      .references(() => prescriptions.id),
+      .references(() => prescriptions.id, { onDelete: "cascade" }),
     medicationId: uuid("medication_id")
       .notNull()
       .references(() => medications.id),

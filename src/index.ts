@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import { Hono } from 'hono';
+import { errorMiddleware } from './middleware/errorHandleMiddleware';
 
 const app = new Hono();
 
+app.use('*', errorMiddleware);
 app.get('/', (c) => {
     return c.json({
         message: 'Bun + Hono'
