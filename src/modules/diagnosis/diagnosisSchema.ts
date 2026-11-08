@@ -45,3 +45,7 @@ export const paginationQuerySchema = z.object({
 
 export type CreateDiagnosisInput = z.infer<typeof createDiagnosisSchema>;
 export type UpdateDiagnosisInput = z.infer<typeof updateDiagnosisSchema>;
+export type IdParam = z.infer<typeof idParamSchema>;
+export type AppointmentIdParam = z.infer<typeof appointmentIdParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;

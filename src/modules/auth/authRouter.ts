@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
+import type { TokenPayload } from "../authorization/authorizationService";
 import {
   loginHandler,
   refreshHandler,
@@ -7,10 +7,11 @@ import {
   logoutAllHandler,
 } from "./authController";
 import { authMiddleware } from "../../middleware/authMiddleware";
+import { zValidator } from "../../utils/validator";
 import { loginSchema, refreshTokenSchema } from "./authSchema";
 
-export const authRouter = new Hono();
- 
+export const authRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+
 authRouter.post("/login", zValidator("json", loginSchema), loginHandler);
 
 authRouter.post(
@@ -27,3 +28,5 @@ authRouter.post(
 );
 
 authRouter.post("/logout-all", authMiddleware, logoutAllHandler);
+
+export default authRouter;

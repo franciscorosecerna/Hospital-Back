@@ -41,3 +41,8 @@ export const updateProcedureSchema = createProcedureSchema
 
 export type CreateProcedureInput = z.infer<typeof createProcedureSchema>;
 export type UpdateProcedureInput = z.infer<typeof updateProcedureSchema>;
+export type IdParam = z.infer<typeof idParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type DoctorIdParam = z.infer<typeof doctorIdParamSchema>;
+export type AppointmentIdParam = z.infer<typeof appointmentIdParamSchema>;
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;

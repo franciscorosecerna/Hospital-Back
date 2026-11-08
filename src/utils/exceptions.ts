@@ -121,6 +121,36 @@ export class RecordNotFoundException extends Error {
     public readonly id: string
   ) {
     super(`No record found in "${table}" with identifier "${id}".`);
+    this.name = new.target.name;
+
+    Error.captureStackTrace?.(
+      this,
+      new.target
+    );
+  }
+}
+
+export class ConflictStateException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+
+    Error.captureStackTrace?.(
+      this,
+      new.target
+    );
+  }
+}
+
+export class BusinessRuleException extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+
+    Error.captureStackTrace?.(
+      this,
+      new.target
+    );
   }
 }
 

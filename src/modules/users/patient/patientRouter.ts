@@ -1,7 +1,11 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { createPatientSchema, idParamSchema, paginationQuerySchema, updatePatientSchema } from "../userSchema";
+import {
+  createPatientSchema,
+  historiaClinicaParamSchema,
+  idParamSchema,
+  paginationQuerySchema,
+  updatePatientSchema,
+} from "../userSchema";
 import {
   createPatient,
   getPatients,
@@ -12,18 +16,21 @@ import {
 } from "./patientController";
 import { authMiddleware } from "../../../middleware/authMiddleware";
 import { requirePermission } from "../../../middleware/permissionMiddleware";
+import { zValidator } from "../../../utils/validator";
 import type { TokenPayload } from "../../authorization/authorizationService";
 
-export const patientRouter = new Hono<{ Variables: { user: TokenPayload } }>();;
+export const patientRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
-patientRouter.post("/",
+patientRouter.post(
+  "/",
   authMiddleware,
   requirePermission("patients:create"),
   zValidator("json", createPatientSchema),
   createPatient
 );
 
-patientRouter.get("/",
+patientRouter.get(
+  "/",
   authMiddleware,
   requirePermission("patients:read"),
   zValidator("query", paginationQuerySchema),
@@ -34,7 +41,7 @@ patientRouter.get(
   "/by-historia/:numeroHistoriaClinica",
   authMiddleware,
   requirePermission("patients:read"),
-  zValidator("param", z.object({ numeroHistoriaClinica: z.string() })),
+  zValidator("param", historiaClinicaParamSchema),
   getPatientByHistoriaClinica
 );
 
@@ -62,3 +69,5 @@ patientRouter.delete(
   zValidator("param", idParamSchema),
   deletePatient
 );
+
+export default patientRouter;

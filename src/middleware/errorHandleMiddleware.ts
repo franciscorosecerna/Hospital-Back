@@ -10,7 +10,9 @@ import {
   CheckViolationException,
   InvalidInputException,
   InvalidCredentialsException,
-  ForbiddenException
+  ForbiddenException,
+  ConflictStateException,
+  BusinessRuleException,
 } from "../utils/exceptions";
 
 interface ErrorResponse {
@@ -66,6 +68,22 @@ export async function errorMiddleware(c: Context, next: Next): Promise<void> {
       return;
     }
 
+    if (err instanceof ConflictStateException) {
+      c.res = c.json(
+        buildErrorResponse("CONFLICT_STATE", err.message),
+        409 as never
+      );
+      return;
+    }
+
+    if (err instanceof BusinessRuleException) {
+      c.res = c.json(
+        buildErrorResponse("BUSINESS_RULE_VIOLATION", err.message),
+        422 as never
+      );
+      return;
+    }
+
     if (err instanceof ForeignKeyViolationException) {
       c.res = c.json(
         buildErrorResponse("FOREIGN_KEY_VIOLATION", err.message),
@@ -116,11 +134,20 @@ export async function errorMiddleware(c: Context, next: Next): Promise<void> {
     }
 
     if (err instanceof ZodError) {
+      const flattened = err.flatten();
+      const hasFieldErrors = Object.keys(flattened.fieldErrors).length > 0;
+      const details =
+        flattened.formErrors.length > 0
+          ? hasFieldErrors
+            ? { fieldErrors: flattened.fieldErrors, formErrors: flattened.formErrors }
+            : flattened.formErrors
+          : flattened.fieldErrors;
+
       c.res = c.json(
         buildErrorResponse(
           "VALIDATION_ERROR",
           "Error de validación.",
-          err.flatten().fieldErrors
+          details
         ),
         422 as never
       );

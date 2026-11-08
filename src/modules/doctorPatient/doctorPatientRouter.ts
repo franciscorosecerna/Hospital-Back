@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 import {
     getAssignmentById,
@@ -18,8 +17,9 @@ import {
 } from "./doctorPatientSchema";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 
-const doctorPatientRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+export const doctorPatientRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 doctorPatientRouter.get(
     "/:id",

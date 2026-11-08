@@ -57,6 +57,13 @@ export const annulPrescriptionSchema = z.object({
   motivoAnulacion: z.string().trim().min(1).max(512),
 });
 
+export const publicVerifyPrescriptionSchema = z.object({
+  documentHash: z
+    .string()
+    .trim()
+    .regex(/^[a-fA-F0-9]{64}$/, "El hash del documento debe ser un SHA-256 en hexadecimal (64 caracteres)"),
+});
+
 export const idParamSchema = z.object({ id: uuid });
 export const appointmentIdParamSchema = z.object({ appointmentId: uuid });
 export const patientIdParamSchema = z.object({ patientId: uuid });
@@ -65,4 +72,10 @@ export const doctorIdParamSchema = z.object({ doctorId: uuid });
 export type CreatePrescriptionInput = z.infer<typeof createPrescriptionSchema>;
 export type UpdatePrescriptionInput = z.infer<typeof updatePrescriptionSchema>;
 export type SignPrescriptionInput = z.infer<typeof signPrescriptionSchema>;
+export type AnnulPrescriptionInput = z.infer<typeof annulPrescriptionSchema>;
+export type PublicVerifyPrescriptionInput = z.infer<typeof publicVerifyPrescriptionSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type IdParam = z.infer<typeof idParamSchema>;
+export type AppointmentIdParam = z.infer<typeof appointmentIdParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type DoctorIdParam = z.infer<typeof doctorIdParamSchema>;

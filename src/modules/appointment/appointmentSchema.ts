@@ -59,3 +59,6 @@ export type AppointmentState = z.infer<typeof appointmentStateSchema>;
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type AppointmentIdParam = z.infer<typeof appointmentIdParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type DoctorIdParam = z.infer<typeof doctorIdParamSchema>;

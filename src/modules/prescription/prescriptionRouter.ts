@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission, requireRole } from "../../middleware/permissionMiddleware";
+import { rateLimitMiddleware } from "../../middleware/rateLimitMiddleware";
+import { zValidator } from "../../utils/validator";
 import {
   annulPrescription,
   createPrescription,
@@ -15,6 +16,7 @@ import {
   signPrescription,
   updatePrescription,
   verifyPrescription,
+  verifyPrescriptionPublic,
 } from "./prescriptionController";
 import {
   annulPrescriptionSchema,
@@ -24,11 +26,25 @@ import {
   idParamSchema,
   paginationQuerySchema,
   patientIdParamSchema,
+  publicVerifyPrescriptionSchema,
   signPrescriptionSchema,
   updatePrescriptionSchema,
 } from "./prescriptionSchema";
 
-const prescriptionRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+export const prescriptionRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+
+const publicVerifyRateLimiter = rateLimitMiddleware({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+});
+
+prescriptionRouter.post(
+  "/public/:id/verify",
+  publicVerifyRateLimiter,
+  zValidator("param", idParamSchema),
+  zValidator("json", publicVerifyPrescriptionSchema),
+  verifyPrescriptionPublic,
+);
 
 prescriptionRouter.post(
   "/",

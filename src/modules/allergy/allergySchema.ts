@@ -40,3 +40,10 @@ export const createAllergySchema = z.object({
 export const updateAllergySchema = createAllergySchema
   .omit({ patientId: true })
   .partial();
+
+export type IdParam = z.infer<typeof idParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type PatientAndSustanciaParam = z.infer<typeof patientAndSustanciaParamSchema>;
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type CreateAllergyInput = z.infer<typeof createAllergySchema>;
+export type UpdateAllergyInput = z.infer<typeof updateAllergySchema>;

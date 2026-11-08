@@ -5,7 +5,8 @@ import {
   createAllergy,
   updateAllergy,
   deleteAllergy,
-  type Allergy 
+  type Allergy, 
+  type NewAllergy
 } from "./allergyRepository";
 
 export async function getById(id: string): Promise<Allergy> {
@@ -24,7 +25,7 @@ export async function getByPatient(patientId: string, limit: number, page: numbe
   return await getAllergiesByPatient(patientId, limit, offset);
 }
 
-export async function create(data: Allergy, performedBy?: string): Promise<Allergy> {
+export async function create(data: NewAllergy, performedBy?: string): Promise<Allergy> {
   return await createAllergy(data, performedBy);
 }
 

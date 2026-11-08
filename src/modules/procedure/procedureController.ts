@@ -1,5 +1,13 @@
-import type { Context } from "hono";
-import type { TokenPayload } from "../authorization/authorizationService";
+import type { ValidatedContext } from "../../utils/validator";
+import type {
+  AppointmentIdParam,
+  CreateProcedureInput,
+  DoctorIdParam,
+  IdParam,
+  PaginationQuery,
+  PatientIdParam,
+  UpdateProcedureInput,
+} from "./procedureSchema";
 import {
   createProcedureService,
   getProcedureByIdService,
@@ -7,54 +15,52 @@ import {
   getProceduresByDoctorService,
   getProceduresByAppointmentService,
   updateProcedureService,
-  deleteProcedureService
+  deleteProcedureService,
 } from "./procedureService";
 
-type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
-
-export async function getProcedureById(c: AuthedContext) {
-  const { id } = c.req.valid("param" as never);
+export async function getProcedureById(c: ValidatedContext<unknown, IdParam>) {
+  const { id } = c.req.valid("param");
   const procedure = await getProcedureByIdService(id);
   return c.json(procedure);
 }
 
-export async function getProceduresByPatient(c: AuthedContext) {
-  const { patientId } = c.req.valid("param" as never);
-  const { limit, page } = c.req.valid("query" as never);
+export async function getProceduresByPatient(c: ValidatedContext<unknown, PatientIdParam, PaginationQuery>) {
+  const { patientId } = c.req.valid("param");
+  const { limit, page } = c.req.valid("query");
   const procedures = await getProceduresByPatientService(patientId, limit, page);
   return c.json(procedures);
 }
 
-export async function getProceduresByDoctor(c: AuthedContext) {
-  const { doctorId } = c.req.valid("param" as never);
-  const { limit, page } = c.req.valid("query" as never);
+export async function getProceduresByDoctor(c: ValidatedContext<unknown, DoctorIdParam, PaginationQuery>) {
+  const { doctorId } = c.req.valid("param");
+  const { limit, page } = c.req.valid("query");
   const procedures = await getProceduresByDoctorService(doctorId, limit, page);
   return c.json(procedures);
 }
 
-export async function getProceduresByAppointment(c: AuthedContext) {
-  const { appointmentId } = c.req.valid("param" as never);
+export async function getProceduresByAppointment(c: ValidatedContext<unknown, AppointmentIdParam>) {
+  const { appointmentId } = c.req.valid("param");
   const procedures = await getProceduresByAppointmentService(appointmentId);
   return c.json(procedures);
 }
 
-export async function createProcedure(c: AuthedContext) {
-  const input = c.req.valid("json" as never);
+export async function createProcedure(c: ValidatedContext<CreateProcedureInput>) {
+  const input = c.req.valid("json");
   const user = c.get("user").sub;
   const procedure = await createProcedureService(input, user);
   return c.json(procedure, 201);
 }
 
-export async function updateProcedure(c: AuthedContext) {
-  const { id } = c.req.valid("param" as never);
-  const input = c.req.valid("json" as never);
+export async function updateProcedure(c: ValidatedContext<UpdateProcedureInput, IdParam>) {
+  const { id } = c.req.valid("param");
+  const input = c.req.valid("json");
   const user = c.get("user").sub;
   const procedure = await updateProcedureService(id, input, user);
   return c.json(procedure);
 }
 
-export async function deleteProcedure(c: AuthedContext) {
-  const { id } = c.req.valid("param" as never);
+export async function deleteProcedure(c: ValidatedContext<unknown, IdParam>) {
+  const { id } = c.req.valid("param");
   const user = c.get("user").sub;
   const procedure = await deleteProcedureService(id, user);
   return c.json(procedure);

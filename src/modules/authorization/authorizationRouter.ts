@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import {
   createRoleSchema,
   createPermissionSchema,
@@ -34,6 +33,7 @@ import {
 } from "./authorizationController";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 import type { TokenPayload } from "./authorizationService";
 
 export const authorizationRouter = new Hono<{ Variables: { user: TokenPayload } }>();
@@ -173,3 +173,5 @@ authorizationRouter.get(
   zValidator("param", roleIdOnlyParamSchema),
   getRolePermissions
 );
+
+export default authorizationRouter;

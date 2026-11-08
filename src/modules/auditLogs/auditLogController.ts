@@ -1,25 +1,22 @@
-import type { Context } from "hono";
-import type { TokenPayload } from "../authorization/authorizationService";
+import type { ValidatedContext } from "../../utils/validator";
 import { create, getAll, getById } from "./auditLogService";
-import type { CreateAuditLogInput } from "./auditLogSchema";
+import type { AuditLogParam, AuditLogQuery, CreateAuditLogInput } from "./auditLogSchema";
 
-type AuthedContext = Context<{ Variables: { user: TokenPayload } }>;
-
-export async function getAuditLogByIdHandler(c: Context) {
-  const { id } = c.req.valid("param" as never);
+export async function getAuditLogByIdHandler(c: ValidatedContext<unknown, AuditLogParam>) {
+  const { id } = c.req.valid("param");
   const auditLog = await getById(id);
   return c.json(auditLog, 200);
 }
 
-export async function getAllAuditLogsHandler(c: Context) {
-  const filters = c.req.valid("query" as never);
-  const { limit, page } = c.req.valid("query" as never);
+export async function getAllAuditLogsHandler(c: ValidatedContext<unknown, unknown, AuditLogQuery>) {
+  const filters = c.req.valid("query");
+  const { limit, page } = filters;
   const auditLogs = await getAll(filters, limit, page);
   return c.json(auditLogs, 200);
 }
 
-export async function createAuditLogHandler(c: AuthedContext) {
-  const data = c.req.valid("json" as never) as CreateAuditLogInput;
+export async function createAuditLogHandler(c: ValidatedContext<CreateAuditLogInput>) {
+  const data = c.req.valid("json");
   const { sub: performedBy } = c.get("user");
   const newAuditLog = await create({ ...data, performedBy });
   return c.json(newAuditLog, 201);

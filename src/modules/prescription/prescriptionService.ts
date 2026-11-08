@@ -1,12 +1,13 @@
-import { createHash, createVerify, verify as cryptoVerify, X509Certificate } from "node:crypto";
-import { ForbiddenException, InvalidInputException } from "../../utils/exceptions";
+import { createHash, createVerify, timingSafeEqual, verify as cryptoVerify, X509Certificate } from "node:crypto";
+import { BusinessRuleException, ConflictStateException, ForbiddenException } from "../../utils/exceptions";
+import type { TokenPayload } from "../authorization/authorizationService";
+import { getCertificateWithCaById } from "../certificateAuthority/certificateAuthorityRepository";
 import {
   annulPrescription,
   createPrescription,
   createSignatureVerification,
   deleteDraftPrescription,
   getAppointmentForPrescription,
-  getCertificateWithCaById,
   getPrescriptionByAppointment,
   getPrescriptionById,
   getPrescriptionsByDoctor,
@@ -17,7 +18,21 @@ import {
   type PrescriptionItem,
   type SignatureVerification,
 } from "./prescriptionRepository";
-import type { CreatePrescriptionInput, SignPrescriptionInput, UpdatePrescriptionInput } from "./prescriptionSchema";
+import type {
+  CreatePrescriptionInput,
+  PublicVerifyPrescriptionInput,
+  SignPrescriptionInput,
+  UpdatePrescriptionInput,
+} from "./prescriptionSchema";
+
+const CLINICAL_STAFF_ROLES = ["admin", "doctor", "nurse"];
+
+function assertCanAccessPatientPrescription(requester: TokenPayload, targetPatientId: string): void {
+  const isStaff = requester.roles.some((role) => CLINICAL_STAFF_ROLES.includes(role));
+  if (!isStaff && requester.sub !== targetPatientId) {
+    throw new ForbiddenException("No tiene permiso para acceder a las recetas de otro paciente.");
+  }
+}
 
 export function buildCanonicalPrescriptionPayload(
   prescription: Pick<Prescription, "id" | "appointmentId" | "doctorId" | "patientId" | "fechaEmision" | "observaciones">,
@@ -59,7 +74,8 @@ function verifyCryptographicSignature(
   documentHashHex: string,
   signatureBase64: string,
   algorithm: string,
-): { valid: boolean; reason?: string } {
+  evaluationTime: Date,
+): { valid: boolean; expired?: boolean; reason?: string } {
   let doctorX509: X509Certificate;
   let caX509: X509Certificate;
 
@@ -68,6 +84,28 @@ function verifyCryptographicSignature(
     caX509 = new X509Certificate(certificadoRaizCaPem);
   } catch {
     return { valid: false, reason: "Formato PEM de certificado X.509 inválido." };
+  }
+
+  if (!caX509.ca) {
+    return { valid: false, reason: "El certificado raíz proporcionado no corresponde a una Autoridad Certificadora (basicConstraints CA=false)." };
+  }
+
+  const doctorValidFrom = new Date(doctorX509.validFrom);
+  const doctorValidTo = new Date(doctorX509.validTo);
+  const caValidFrom = new Date(caX509.validFrom);
+  const caValidTo = new Date(caX509.validTo);
+
+  if (
+    evaluationTime < doctorValidFrom ||
+    evaluationTime > doctorValidTo ||
+    evaluationTime < caValidFrom ||
+    evaluationTime > caValidTo
+  ) {
+    return {
+      valid: false,
+      expired: true,
+      reason: "El certificado X.509 del médico o de la Autoridad Certificadora no se encuentra dentro de su período de validez.",
+    };
   }
 
   try {
@@ -81,11 +119,13 @@ function verifyCryptographicSignature(
 
   const signatureBuffer = Buffer.from(signatureBase64, "base64");
   const digestBuffer = Buffer.from(documentHashHex, "hex");
+  const hexUtf8Buffer = Buffer.from(documentHashHex, "utf8");
 
   try {
     if (algorithm === "Ed25519") {
-      const isValid = cryptoVerify(null, digestBuffer, doctorX509.publicKey, signatureBuffer);
-      return isValid
+      const isValidRaw = cryptoVerify(null, digestBuffer, doctorX509.publicKey, signatureBuffer);
+      const isValidHexUtf8 = isValidRaw || cryptoVerify(null, hexUtf8Buffer, doctorX509.publicKey, signatureBuffer);
+      return isValidHexUtf8
         ? { valid: true }
         : { valid: false, reason: "La firma criptográfica Ed25519 no es válida para el hash del documento." };
     }
@@ -103,10 +143,14 @@ function verifyCryptographicSignature(
       return { valid: false, reason: `Algoritmo de firma no soportado: ${algorithm}` };
     }
 
-    const verifier = createVerify(verifyAlgo);
-    verifier.update(documentHashHex, "utf8");
-    verifier.end();
-    const isValid = verifier.verify(doctorX509.publicKey, signatureBuffer);
+    const verifyWithPayload = (payload: Buffer) => {
+      const verifier = createVerify(verifyAlgo);
+      verifier.update(payload);
+      verifier.end();
+      return verifier.verify(doctorX509.publicKey, signatureBuffer);
+    };
+
+    const isValid = verifyWithPayload(digestBuffer) || verifyWithPayload(hexUtf8Buffer);
 
     return isValid
       ? { valid: true }
@@ -125,10 +169,10 @@ export async function createPrescriptionService(
     throw new ForbiddenException("Solo el médico asignado al turno puede emitir una receta para este turno.");
   }
   if (appointment.patientId !== data.patientId) {
-    throw new InvalidInputException("El paciente no coincide con el turno indicado.");
+    throw new BusinessRuleException("El paciente no coincide con el turno indicado.");
   }
   if (appointment.estado === "Cancelada") {
-    throw new InvalidInputException("No se puede emitir una receta para un turno cancelado.");
+    throw new ConflictStateException("No se puede emitir una receta para un turno cancelado.");
   }
 
   return createPrescription({
@@ -139,16 +183,25 @@ export async function createPrescriptionService(
   }, data.items, doctorId);
 }
 
-export const getPrescriptionService = (id: string) => getPrescriptionById(id);
+export async function getPrescriptionService(id: string, requester: TokenPayload) {
+  const prescription = await getPrescriptionById(id);
+  assertCanAccessPatientPrescription(requester, prescription.patientId);
+  return prescription;
+}
 
-export const getPrescriptionByAppointmentService = (appointmentId: string) =>
-  getPrescriptionByAppointment(appointmentId);
+export async function getPrescriptionByAppointmentService(appointmentId: string, requester: TokenPayload) {
+  const prescription = await getPrescriptionByAppointment(appointmentId);
+  assertCanAccessPatientPrescription(requester, prescription.patientId);
+  return prescription;
+}
 
 export async function getPrescriptionsByPatientService(
   patientId: string,
+  requester: TokenPayload,
   limit: number = 20,
   page: number = 1,
 ) {
+  assertCanAccessPatientPrescription(requester, patientId);
   const offset = (page - 1) * limit;
   return getPrescriptionsByPatient(patientId, limit, offset);
 }
@@ -198,37 +251,37 @@ export async function signPrescriptionService(
     throw new ForbiddenException("No tiene permiso para firmar una receta emitida por otro médico.");
   }
   if (prescription.estado !== "Borrador") {
-    throw new InvalidInputException(
+    throw new ConflictStateException(
       `Solo se pueden firmar recetas en estado "Borrador" (estado actual: "${prescription.estado}").`,
     );
   }
   if (prescription.items.length === 0) {
-    throw new InvalidInputException("No se puede firmar una receta sin medicamentos.");
+    throw new BusinessRuleException("No se puede firmar una receta sin medicamentos.");
   }
 
   const { documentHash: expectedHash } = computePrescriptionHash(prescription, prescription.items);
   if (data.documentHash.toLowerCase() !== expectedHash.toLowerCase()) {
-    throw new InvalidInputException(
+    throw new BusinessRuleException(
       "El documentHash proporcionado no coincide con el hash canónico SHA-256 de la receta.",
     );
   }
 
   const certRecord = await getCertificateWithCaById(data.certificateId);
   if (!certRecord || certRecord.certificate.doctorId !== doctorId) {
-    throw new InvalidInputException("El certificado no existe o no pertenece al médico.");
+    throw new BusinessRuleException("El certificado no existe o no pertenece al médico.");
   }
 
   const now = new Date();
   const { certificate, ca } = certRecord;
 
   if (certificate.revokedAt) {
-    throw new InvalidInputException("El certificado del médico se encuentra revocado.");
+    throw new BusinessRuleException("El certificado del médico se encuentra revocado.");
   }
   if (certificate.validoDesde > now || certificate.validoHasta < now) {
-    throw new InvalidInputException("El certificado del médico no está vigente.");
+    throw new BusinessRuleException("El certificado del médico no está vigente.");
   }
   if (ca.validoDesde > now || ca.validoHasta < now) {
-    throw new InvalidInputException("El certificado de la Autoridad Certificadora no está vigente.");
+    throw new BusinessRuleException("El certificado de la Autoridad Certificadora no está vigente.");
   }
 
   const cryptoCheck = verifyCryptographicSignature(
@@ -237,10 +290,11 @@ export async function signPrescriptionService(
     expectedHash,
     data.signature,
     data.signatureAlgorithm,
+    now,
   );
 
   if (!cryptoCheck.valid) {
-    throw new InvalidInputException(cryptoCheck.reason ?? "Firma digital inválida.");
+    throw new BusinessRuleException(cryptoCheck.reason ?? "Firma digital inválida.");
   }
 
   return signPrescription(
@@ -254,24 +308,32 @@ export async function signPrescriptionService(
       firmadaAt: now,
     },
     doctorId,
+    (lockedPrescription, lockedItems) => computePrescriptionHash(lockedPrescription, lockedItems).documentHash,
   );
 }
 
 export async function verifyPrescriptionSignatureService(
   id: string,
-  userId?: string,
+  requester?: TokenPayload,
   ipOrigen?: string,
 ): Promise<SignatureVerification> {
   const prescription = await getPrescriptionById(id);
 
+  if (requester) {
+    assertCanAccessPatientPrescription(requester, prescription.patientId);
+  }
+
   if (prescription.estado === "Borrador") {
-    throw new InvalidInputException("La receta aún está en estado Borrador y no posee firma digital.");
+    throw new ConflictStateException("La receta aún está en estado Borrador y no posee firma digital.");
   }
 
   let resultado: "Valida" | "Invalida" | "CertificadoExpirado" | "Revocado" = "Valida";
   let detalle = "Firma digital e integridad del documento verificadas correctamente.";
 
-  if (
+  if (prescription.estado === "Anulada") {
+    resultado = "Invalida";
+    detalle = `La receta se encuentra ANULADA (${prescription.motivoAnulacion ?? "sin motivo especificado"}).`;
+  } else if (
     !prescription.certificateId ||
     !prescription.documentHash ||
     !prescription.signature ||
@@ -311,9 +373,10 @@ export async function verifyPrescriptionSignatureService(
         currentHash,
         prescription.signature,
         prescription.signatureAlgorithm,
+        prescription.firmadaAt,
       );
       if (!cryptoCheck.valid) {
-        resultado = "Invalida";
+        resultado = cryptoCheck.expired ? "CertificadoExpirado" : "Invalida";
         detalle = cryptoCheck.reason ?? "La verificación criptográfica de la firma falló.";
       }
     }
@@ -321,11 +384,68 @@ export async function verifyPrescriptionSignatureService(
 
   return createSignatureVerification({
     prescriptionId: id,
-    verificadoPorUserId: userId,
+    verificadoPorUserId: requester?.sub,
     resultado,
     detalle,
     ipOrigen,
   });
+}
+
+export async function verifyPrescriptionPublicService(
+  id: string,
+  input: PublicVerifyPrescriptionInput,
+  ipOrigen?: string,
+) {
+  const prescription = await getPrescriptionById(id);
+
+  if (prescription.estado === "Borrador" || !prescription.documentHash) {
+    throw new ConflictStateException("La receta indicada aún no ha sido firmada digitalmente.");
+  }
+
+  const providedHashBuf = Buffer.from(input.documentHash.toLowerCase(), "hex");
+  const storedHashBuf = Buffer.from(prescription.documentHash.toLowerCase(), "hex");
+
+  const hashesMatch =
+    providedHashBuf.length === storedHashBuf.length &&
+    timingSafeEqual(providedHashBuf, storedHashBuf);
+
+  if (!hashesMatch) {
+    const verification = await createSignatureVerification({
+      prescriptionId: id,
+      verificadoPorUserId: undefined,
+      resultado: "Invalida",
+      detalle: "El documentHash proporcionado por el verificador externo no coincide con el registrado en la receta.",
+      ipOrigen,
+    });
+
+    return {
+      verification,
+      prescription: null,
+    };
+  }
+
+  const verification = await verifyPrescriptionSignatureService(id, undefined, ipOrigen);
+
+  return {
+    verification,
+    prescription: {
+      id: prescription.id,
+      estado: prescription.estado,
+      doctorId: prescription.doctorId,
+      patientId: prescription.patientId,
+      fechaEmision: prescription.fechaEmision,
+      firmadaAt: prescription.firmadaAt,
+      anuladaAt: prescription.anuladaAt,
+      motivoAnulacion: prescription.motivoAnulacion,
+      items: prescription.items.map((item) => ({
+        medicationId: item.medicationId,
+        dosis: item.dosis,
+        frecuencia: item.frecuencia,
+        duracion: item.duracion,
+        indicaciones: item.indicaciones,
+      })),
+    },
+  };
 }
 
 export async function annulPrescriptionService(id: string, doctorId: string, motivo: string) {

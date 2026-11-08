@@ -19,21 +19,21 @@ const dateString = z
 export const assignmentIdParamSchema = z.object({
     id: uuid,
 });
- 
+
 export const patientIdParamSchema = z.object({
     patientId: uuid,
 });
- 
+
 export const doctorIdParamSchema = z.object({
     doctorId: uuid,
 });
- 
+
 export const createAssignmentSchema = z.object({
     doctorId: uuid,
     patientId: uuid,
     fechaAsignacion: dateString.optional(),
 });
- 
+
 export const finalizeAssignmentSchema = z.object({
     fechaFinalizacion: dateString,
 });
@@ -41,3 +41,6 @@ export const finalizeAssignmentSchema = z.object({
 export type CreateAssignmentInput = z.infer<typeof createAssignmentSchema>;
 export type FinalizeAssignmentInput = z.infer<typeof finalizeAssignmentSchema>;
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
+export type AssignmentIdParam = z.infer<typeof assignmentIdParamSchema>;
+export type PatientIdParam = z.infer<typeof patientIdParamSchema>;
+export type DoctorIdParam = z.infer<typeof doctorIdParamSchema>;

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import {
   getAuditLogByIdHandler,
   getAllAuditLogsHandler,
@@ -11,10 +10,11 @@ import {
   createAuditLogSchema,
 } from "./auditLogSchema";
 import { authMiddleware } from "../../middleware/authMiddleware";
-import {requireRole } from "../../middleware/permissionMiddleware";
+import { requireRole } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 
-const auditLogRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+export const auditLogRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 auditLogRouter.get(
   "/",

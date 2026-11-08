@@ -1,9 +1,8 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
 import {
   baseUserSchema,
   changePasswordSchema,
+  documentoParamSchema,
   idParamSchema,
   paginationQuerySchema,
   updateUserSchema,
@@ -18,14 +17,16 @@ import {
   deleteUser,
 } from "./userController";
 import { authMiddleware } from "../../middleware/authMiddleware";
-import { requirePermission} from "../../middleware/permissionMiddleware";
+import { requirePermission } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 
 export const userRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 userRouter.post("/", zValidator("json", baseUserSchema), createUser);
 
-userRouter.get("/",
+userRouter.get(
+  "/",
   authMiddleware,
   requirePermission("users:read"),
   zValidator("query", paginationQuerySchema),
@@ -36,7 +37,7 @@ userRouter.get(
   "/by-documento/:tipoDocumento/:documento",
   authMiddleware,
   requirePermission("users:read"),
-  zValidator("param", z.object({ tipoDocumento: z.string(), documento: z.string() })),
+  zValidator("param", documentoParamSchema),
   getUserByDocumento
 );
 
@@ -73,3 +74,5 @@ userRouter.delete(
   zValidator("param", idParamSchema),
   deleteUser
 );
+
+export default userRouter;

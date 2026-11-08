@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 import {
     getAppointmentHandler,
@@ -21,8 +20,9 @@ import {
 } from "./appointmentSchema";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 
-const appointmentRouter = new Hono<{ Variables: { user: TokenPayload } }>();
+export const appointmentRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
 appointmentRouter.get(
     "/patient/:patientId",

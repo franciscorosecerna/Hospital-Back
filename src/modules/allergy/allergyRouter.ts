@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import type { TokenPayload } from "../authorization/authorizationService";
 import { authMiddleware } from "../../middleware/authMiddleware";
 import { requirePermission } from "../../middleware/permissionMiddleware";
+import { zValidator } from "../../utils/validator";
 import {
   createAllergyHandler,
   getbyIdHandler,
@@ -67,3 +67,5 @@ allergyRouter.delete(
   zValidator("param", idParamSchema),
   removeAllergyHandler
 );
+
+export default allergyRouter;

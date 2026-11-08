@@ -46,3 +46,15 @@ export const paginationQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional().default(50),
   page: z.coerce.number().int().positive().optional().default(1),
 });
+
+export type CreateRoleInput = z.infer<typeof createRoleSchema>;
+export type CreatePermissionInput = z.infer<typeof createPermissionSchema>;
+export type RoleIdParam = z.infer<typeof roleIdParamSchema>;
+export type PermissionIdParam = z.infer<typeof permissionIdParamSchema>;
+export type RoleNameParam = z.infer<typeof roleNameParamSchema>;
+export type PermissionNameParam = z.infer<typeof permissionNameParamSchema>;
+export type UserRoleParam = z.infer<typeof userRoleParamSchema>;
+export type UserIdParam = z.infer<typeof userIdParamSchema>;
+export type RolePermissionParam = z.infer<typeof rolePermissionParamSchema>;
+export type RoleIdOnlyParam = z.infer<typeof roleIdOnlyParamSchema>;
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>;

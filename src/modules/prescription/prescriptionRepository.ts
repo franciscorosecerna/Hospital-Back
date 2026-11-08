@@ -2,15 +2,14 @@ import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../db/client";
 import { appointments } from "../../db/schema/clinical";
 import {
-  certificateAuthorities,
-  doctorCertificates,
   prescriptionItems,
   prescriptions,
   signatureVerifications,
 } from "../../db/schema/prescriptions";
 import {
+  BusinessRuleException,
+  ConflictStateException,
   ForbiddenException,
-  InvalidInputException,
   parsePgError,
   RecordNotFoundException,
 } from "../../utils/exceptions";
@@ -23,8 +22,6 @@ export type NewPrescriptionItem = typeof prescriptionItems.$inferInsert;
 export type PrescriptionWithItems = Prescription & { items: PrescriptionItem[] };
 export type SignatureVerification = typeof signatureVerifications.$inferSelect;
 export type NewSignatureVerification = typeof signatureVerifications.$inferInsert;
-export type DoctorCertificate = typeof doctorCertificates.$inferSelect;
-export type CertificateAuthority = typeof certificateAuthorities.$inferSelect;
 
 type DbExecutor = typeof db | Tx;
 
@@ -76,7 +73,7 @@ async function getLockedPrescriptionForDoctor(
     throw new ForbiddenException("No tiene permiso para modificar una receta emitida por otro médico.");
   }
   if (existing.estado !== expectedState) {
-    throw new InvalidInputException(
+    throw new ConflictStateException(
       `La operación requiere que la receta esté en estado "${expectedState}", pero su estado actual es "${existing.estado}".`,
     );
   }
@@ -148,24 +145,6 @@ export async function getAppointmentForPrescription(appointmentId: string) {
       .where(eq(appointments.id, appointmentId));
     if (!appointment) throw new RecordNotFoundException("appointments", appointmentId);
     return appointment;
-  } catch (err) {
-    throw parsePgError(err);
-  }
-}
-
-export async function getCertificateWithCaById(
-  certificateId: string,
-): Promise<{ certificate: DoctorCertificate; ca: CertificateAuthority } | undefined> {
-  try {
-    const [record] = await db
-      .select({
-        certificate: doctorCertificates,
-        ca: certificateAuthorities,
-      })
-      .from(doctorCertificates)
-      .innerJoin(certificateAuthorities, eq(doctorCertificates.caId, certificateAuthorities.id))
-      .where(eq(doctorCertificates.id, certificateId));
-    return record;
   } catch (err) {
     throw parsePgError(err);
   }
@@ -250,14 +229,30 @@ export async function signPrescription(
   doctorId: string,
   signatureData: Required<Pick<NewPrescription, "certificateId" | "documentHash" | "signature" | "signatureAlgorithm" | "firmadaAt">>,
   performedBy: string,
+  computeHashFn: (prescription: Prescription, items: PrescriptionItem[]) => string,
 ): Promise<PrescriptionWithItems> {
   try {
     return await db.transaction(async (tx) => {
       const existing = await getLockedPrescriptionForDoctor(tx, id, doctorId, "Borrador");
       const previous = await attachItems(tx, existing);
 
+      if (previous.items.length === 0) {
+        throw new BusinessRuleException("No se puede firmar una receta sin medicamentos.");
+      }
+
+      const currentLockedHash = computeHashFn(existing, previous.items);
+      if (
+        !signatureData.documentHash ||
+        currentLockedHash.toLowerCase() !== signatureData.documentHash.toLowerCase()
+      ) {
+        throw new ConflictStateException(
+          "El contenido de la receta cambió antes de completar la firma. Recalcule el hash e intente nuevamente.",
+        );
+      }
+
       await tx.update(prescriptions).set({
         ...signatureData,
+        documentHash: currentLockedHash,
         estado: "Firmada",
       }).where(and(eq(prescriptions.id, id), eq(prescriptions.estado, "Borrador")));
 

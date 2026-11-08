@@ -5,7 +5,8 @@ import
   getActiveAssignmentsByPatient,
   getActiveAssignmentsByDoctor,
   assignDoctorToPatient,
-  type DoctorPatient
+  type DoctorPatient,
+  type NewDoctorPatient
 } from "./doctorPatientRepository";
 
 export async function getDoctorPatientAssignmentById(id: string): Promise<DoctorPatient> {
@@ -22,7 +23,7 @@ export async function getActiveAssignmentsForDoctor(doctorId: string, page: numb
 }
 
 export async function createDoctorPatientAssignment(
-  data: Omit<DoctorPatient, "id" | "fechaFinalizacion">,
+  data: Omit<NewDoctorPatient, "id" | "fechaFinalizacion">,
   performedBy?: string
 ): Promise<DoctorPatient> {
   return assignDoctorToPatient(data, performedBy);

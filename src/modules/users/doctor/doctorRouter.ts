@@ -1,7 +1,11 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { createDoctorSchema, idParamSchema, paginationQuerySchema, updateDoctorSchema } from "../userSchema";
+import {
+  createDoctorSchema,
+  idParamSchema,
+  matriculaParamSchema,
+  paginationQuerySchema,
+  updateDoctorSchema,
+} from "../userSchema";
 import {
   createDoctor,
   getDoctors,
@@ -12,18 +16,21 @@ import {
 } from "./doctorController";
 import { authMiddleware } from "../../../middleware/authMiddleware";
 import { requirePermission } from "../../../middleware/permissionMiddleware";
+import { zValidator } from "../../../utils/validator";
 import type { TokenPayload } from "../../authorization/authorizationService";
 
-export const doctorRouter = new Hono<{ Variables: { user: TokenPayload } }>();;
+export const doctorRouter = new Hono<{ Variables: { user: TokenPayload } }>();
 
-doctorRouter.post("/",
+doctorRouter.post(
+  "/",
   authMiddleware,
   requirePermission("doctors:create"),
   zValidator("json", createDoctorSchema),
   createDoctor
 );
 
-doctorRouter.get("/",
+doctorRouter.get(
+  "/",
   authMiddleware,
   requirePermission("doctors:read"),
   zValidator("query", paginationQuerySchema),
@@ -34,7 +41,7 @@ doctorRouter.get(
   "/by-matricula/:matricula",
   authMiddleware,
   requirePermission("doctors:read"),
-  zValidator("param", z.object({ matricula: z.string() })),
+  zValidator("param", matriculaParamSchema),
   getDoctorByMatricula
 );
 
@@ -62,3 +69,5 @@ doctorRouter.delete(
   zValidator("param", idParamSchema),
   deleteDoctor
 );
+
+export default doctorRouter;
